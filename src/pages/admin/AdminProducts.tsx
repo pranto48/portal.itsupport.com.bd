@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Plus, Edit, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+const CATEGORIES = ['AMPNM', 'LifeOS', 'Other'];
 const emptyProduct = { name: '', description: '', category: 'AMPNM', price: 0, max_devices: 1, license_duration_days: 365 };
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [editModal, setEditModal] = useState<any>(null);
   const [newProduct, setNewProduct] = useState({ ...emptyProduct });
+  const [filterCategory, setFilterCategory] = useState('all');
 
   const fetchProducts = async () => {
     const { data } = await supabase.from('products').select('*').order('name');
@@ -50,7 +52,7 @@ const AdminProducts = () => {
             <input required className="form-admin-input" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} /></div>
           <div><label className="block text-gray-300 text-sm font-bold mb-2">Category:</label>
             <select className="form-admin-input" value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))}>
-              <option value="AMPNM">AMPNM</option><option value="Other">Other</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select></div>
           <div><label className="block text-gray-300 text-sm font-bold mb-2">Price ($):</label>
             <input type="number" step="0.01" required className="form-admin-input" value={newProduct.price} onChange={e => setNewProduct(p => ({ ...p, price: +e.target.value }))} /></div>
@@ -65,6 +67,13 @@ const AdminProducts = () => {
       </div>
 
       <div className="admin-card p-6">
+        <div className="flex items-center gap-4 mb-4">
+          <label className="text-gray-300 text-sm font-bold">Filter:</label>
+          <select className="form-admin-input w-auto" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <option value="all">All Categories</option>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full bg-gray-700 rounded-lg">
             <thead>
@@ -78,7 +87,7 @@ const AdminProducts = () => {
               </tr>
             </thead>
             <tbody className="text-gray-300 text-sm">
-              {products.map(p => (
+              {products.filter(p => filterCategory === 'all' || p.category === filterCategory).map(p => (
                 <tr key={p.id} className="border-b border-gray-600 hover:bg-gray-600">
                   <td className="py-3 px-4">{p.name}</td>
                   <td className="py-3 px-4">{p.category}</td>
@@ -105,7 +114,7 @@ const AdminProducts = () => {
             </div>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div><label className="block text-gray-300 text-sm mb-2">Name:</label><input required className="form-admin-input" value={editModal.name} onChange={e => setEditModal((m: any) => ({ ...m, name: e.target.value }))} /></div>
-              <div><label className="block text-gray-300 text-sm mb-2">Category:</label><select className="form-admin-input" value={editModal.category} onChange={e => setEditModal((m: any) => ({ ...m, category: e.target.value }))}><option value="AMPNM">AMPNM</option><option value="Other">Other</option></select></div>
+              <div><label className="block text-gray-300 text-sm mb-2">Category:</label><select className="form-admin-input" value={editModal.category} onChange={e => setEditModal((m: any) => ({ ...m, category: e.target.value }))}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
               <div><label className="block text-gray-300 text-sm mb-2">Price:</label><input type="number" step="0.01" className="form-admin-input" value={editModal.price} onChange={e => setEditModal((m: any) => ({ ...m, price: +e.target.value }))} /></div>
               <div><label className="block text-gray-300 text-sm mb-2">Max Devices:</label><input type="number" className="form-admin-input" value={editModal.max_devices} onChange={e => setEditModal((m: any) => ({ ...m, max_devices: +e.target.value }))} /></div>
               <div><label className="block text-gray-300 text-sm mb-2">Duration (Days):</label><input type="number" className="form-admin-input" value={editModal.license_duration_days} onChange={e => setEditModal((m: any) => ({ ...m, license_duration_days: +e.target.value }))} /></div>
