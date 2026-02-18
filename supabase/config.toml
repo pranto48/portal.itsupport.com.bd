@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.verify-license]
 verify_jwt = false
+
+[functions.reconcile-licenses]
+verify_jwt = false
