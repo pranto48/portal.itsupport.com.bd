@@ -8,11 +8,12 @@ const AdminLicenses = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [editModal, setEditModal] = useState<any>(null);
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
 
   const fetchAll = async () => {
-    const { data: l } = await supabase.from('licenses').select('*, products(name)');
+    const { data: l } = await supabase.from('licenses').select('*, products(name, category)');
     const { data: p } = await supabase.from('profiles').select('user_id, email').order('email');
     setProfiles(p || []);
     // Map customer emails onto licenses
@@ -21,7 +22,7 @@ const AdminLicenses = () => {
       return acc;
     }, {});
     setLicenses((l || []).map((lic: any) => ({ ...lic, customer_email: profileMap[lic.customer_id] || 'N/A' })));
-    const { data: pr } = await supabase.from('products').select('id, name');
+    const { data: pr } = await supabase.from('products').select('id, name, category');
     setProducts(pr || []);
   };
 
@@ -68,10 +69,14 @@ const AdminLicenses = () => {
     toast.success('Updated'); setEditModal(null); fetchAll();
   };
 
-  const filtered = licenses.filter(l =>
-    l.license_key.toLowerCase().includes(search.toLowerCase()) ||
-    (l.customer_email || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const categories = [...new Set(products.map((p: any) => p.category).filter(Boolean))];
+
+  const filtered = licenses.filter(l => {
+    const matchSearch = l.license_key.toLowerCase().includes(search.toLowerCase()) ||
+      (l.customer_email || '').toLowerCase().includes(search.toLowerCase());
+    const matchCategory = filterCategory === 'all' || (l.products as any)?.category === filterCategory;
+    return matchSearch && matchCategory;
+  });
 
   return (
     <div className="page-content max-w-7xl mx-auto px-4 py-8">
@@ -108,6 +113,10 @@ const AdminLicenses = () => {
       <div className="admin-card p-6">
         <div className="flex items-center gap-4 mb-4">
           <input type="text" placeholder="Search by key or email..." className="form-admin-input flex-grow" value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="form-admin-input w-auto" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <option value="all">All Categories</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full bg-gray-700 rounded-lg">
