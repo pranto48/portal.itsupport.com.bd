@@ -1,93 +1,88 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Lock, Mail } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Mail, Lock, LogIn } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For now, just navigate to home
-    navigate("/");
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Login failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
-        <div className="max-w-md text-primary-foreground">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-              <Lock className="w-5 h-5 text-accent-foreground" />
+    <div className="page-content min-h-[80vh] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="glass-card user-login-card p-8 form-fade-in">
+          <div className="text-center mb-8">
+            <div className="feature-icon mx-auto w-fit mb-4">
+              <LogIn className="w-8 h-8 text-blue-200" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">ClientPortal</span>
+            <h1 className="text-3xl font-bold text-white">Customer Login</h1>
+            <p className="text-gray-300 mt-2">Sign in to manage your licenses and support tickets</p>
           </div>
-          <h1 className="text-4xl font-bold leading-tight mb-4">
-            Welcome to your secure client portal
-          </h1>
-          <p className="text-primary-foreground/70 text-lg">
-            Access your documents, track projects, and communicate with your team — all in one place.
-          </p>
-        </div>
-      </div>
 
-      {/* Right login form */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
-        <Card className="w-full max-w-md border-0 shadow-none lg:shadow-none">
-          <CardHeader className="space-y-1 pb-6 lg:hidden">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                <Lock className="w-4 h-4 text-primary-foreground" />
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="form-glass-input pl-10"
+                />
               </div>
-              <span className="text-xl font-bold text-foreground">ClientPortal</span>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-foreground">Sign in</h2>
-              <p className="text-muted-foreground mt-1">Enter your credentials to access the portal</p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="form-glass-input pl-10"
+                />
+              </div>
             </div>
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full">
-                Sign in
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+
+            <button type="submit" disabled={loading} className="btn-glass-primary w-full py-3 text-lg">
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-gray-400 text-sm">
+              Don't have an account?{" "}
+              <Link to="/register" className="text-blue-300 hover:text-blue-200 font-medium">Register here</Link>
+            </p>
+            <p className="text-gray-500 text-xs">
+              <Link to="/admin-login" className="hover:text-gray-300">Admin access →</Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
