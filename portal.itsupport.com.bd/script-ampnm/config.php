@@ -1,15 +1,16 @@
 <?php
 // Database configuration for XAMPP/LAMP installation
 // Default XAMPP MySQL settings
-define('DB_SERVER', 'localhost');
-define('DB_USERNAME', 'root');
-define('DB_PASSWORD', '');
-define('DB_NAME', 'network_monitor');
+// Database configuration — Docker env vars override defaults
+define('DB_SERVER', getenv('DB_HOST') ?: 'localhost');
+define('DB_USERNAME', getenv('DB_USER') ?: 'root');
+define('DB_PASSWORD', getenv('DB_PASSWORD') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: 'network_monitor');
 
 // License System Configuration
-define('LICENSE_API_URL', 'https://portal.itsupport.com.bd/verify_license.php');
-define('APP_LICENSE_KEY_ENV', '');
-define('LICENSE_DATA_KEY', '');
+define('LICENSE_API_URL', getenv('LICENSE_API_URL') ?: 'https://abcytwvuntyicdknpzju.supabase.co/functions/v1/verify-license');
+define('APP_LICENSE_KEY_ENV', getenv('APP_LICENSE_KEY') ?: '');
+define('LICENSE_DATA_KEY', getenv('LICENSE_DATA_KEY') ?: '');
 
 // Create database connection
 function getDbConnection() {
