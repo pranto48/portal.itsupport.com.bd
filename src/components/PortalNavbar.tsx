@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
-import { Menu, X, Shield, ShoppingCart, User, LifeBuoy, LayoutDashboard, Package, LogOut, Lock, Home } from 'lucide-react';
+import { Menu, X, Shield, ShoppingCart, User, LifeBuoy, LayoutDashboard, Package, LogOut, Lock, Home, Database } from 'lucide-react';
 
 const PortalNavbar = () => {
   const { user, isAdmin, profile, signOut } = useAuth();
@@ -25,6 +25,7 @@ const PortalNavbar = () => {
     { to: '/admin/users', label: 'Users', icon: User },
     { to: '/admin/tickets', label: 'Tickets', icon: LifeBuoy },
     { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+    { to: '/admin/backup', label: 'Backup', icon: Database },
   ];
 
   const isAdminPage = location.pathname.startsWith('/admin');
