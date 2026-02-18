@@ -74,7 +74,10 @@ const Products = () => {
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-xl font-semibold text-white mb-1">{product.name}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-xl font-semibold text-white">{product.name}</h3>
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${product.category === 'LifeOS' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : product.category === 'AMPNM' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'}`}>{product.category}</span>
+                        </div>
                         <p className="text-gray-200 text-sm">{product.description}</p>
                       </div>
                     </div>

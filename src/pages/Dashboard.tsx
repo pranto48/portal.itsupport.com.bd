@@ -62,7 +62,12 @@ const Dashboard = () => {
             <div className="space-y-4">
               {licenses.map(license => (
                 <div key={license.id} className="glass-card p-4">
-                  <h4 className="text-lg font-semibold text-white">{(license.products as any)?.name || 'License'}</h4>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-lg font-semibold text-white">{(license.products as any)?.name || 'License'}</h4>
+                    {(license.products as any)?.category && (
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${(license.products as any)?.category === 'LifeOS' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : (license.products as any)?.category === 'AMPNM' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'}`}>{(license.products as any)?.category}</span>
+                    )}
+                  </div>
                   <p className="text-gray-200 text-sm mb-2">{(license.products as any)?.description}</p>
                   <div className="bg-gray-800 p-3 rounded-md font-mono text-sm break-all mb-2 flex items-center justify-between">
                     <span><strong className="text-gray-300">Key:</strong> <span className="text-white">{license.license_key}</span></span>
