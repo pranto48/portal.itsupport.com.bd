@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      license_verification_log: {
+        Row: {
+          created_at: string
+          id: string
+          installation_id: string | null
+          ip_address: string | null
+          license_key_hash: string
+          reason: string | null
+          result: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          installation_id?: string | null
+          ip_address?: string | null
+          license_key_hash: string
+          reason?: string | null
+          result: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          installation_id?: string | null
+          ip_address?: string | null
+          license_key_hash?: string
+          reason?: string | null
+          result?: string
+        }
+        Relationships: []
+      }
       licenses: {
         Row: {
           bound_installation_id: string | null
