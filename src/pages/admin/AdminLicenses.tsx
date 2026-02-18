@@ -12,10 +12,15 @@ const AdminLicenses = () => {
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
 
   const fetchAll = async () => {
-    const { data: l } = await supabase.from('licenses').select('*, products(name), profiles!licenses_customer_id_fkey(email)');
-    setLicenses(l || []);
+    const { data: l } = await supabase.from('licenses').select('*, products(name)');
     const { data: p } = await supabase.from('profiles').select('user_id, email').order('email');
     setProfiles(p || []);
+    // Map customer emails onto licenses
+    const profileMap = (p || []).reduce((acc: Record<string, string>, prof: any) => {
+      acc[prof.user_id] = prof.email;
+      return acc;
+    }, {});
+    setLicenses((l || []).map((lic: any) => ({ ...lic, customer_email: profileMap[lic.customer_id] || 'N/A' })));
     const { data: pr } = await supabase.from('products').select('id, name');
     setProducts(pr || []);
   };
@@ -65,7 +70,7 @@ const AdminLicenses = () => {
 
   const filtered = licenses.filter(l =>
     l.license_key.toLowerCase().includes(search.toLowerCase()) ||
-    (l.profiles as any)?.email?.toLowerCase().includes(search.toLowerCase())
+    (l.customer_email || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -121,7 +126,7 @@ const AdminLicenses = () => {
               {filtered.map(l => (
                 <tr key={l.id} className="border-b border-gray-600 hover:bg-gray-600">
                   <td className="py-3 px-4 font-mono text-xs break-all">{l.license_key}</td>
-                  <td className="py-3 px-4">{(l.profiles as any)?.email || 'N/A'}</td>
+                  <td className="py-3 px-4">{l.customer_email}</td>
                   <td className="py-3 px-4">{(l.products as any)?.name || 'N/A'}</td>
                   <td className="py-3 px-4">
                     <span className={`px-2 py-1 rounded-full text-xs ${l.status === 'active' || l.status === 'free' ? 'bg-green-500' : 'bg-red-500'}`}>{l.status}</span>
