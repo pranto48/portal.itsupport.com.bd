@@ -21,7 +21,7 @@ const Products = () => {
     return acc;
   }, {} as Record<string, any[]>);
 
-  const categoryIcons: Record<string, any> = { AMPNM: Network, Support: Shield, 'Add-ons': Package, Other: Package };
+  const categoryIcons: Record<string, any> = { AMPNM: Network, LifeOS: Zap, Support: Shield, 'Add-ons': Package, Other: Package };
 
   const handleAdd = (product: any) => {
     addToCart(product);
@@ -35,9 +35,9 @@ const Products = () => {
         <div className="floating-orb two" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center relative z-10">
           <div className="space-y-3">
-            <span className="accent-badge"><Package className="w-4 h-4" /> AMPNM catalog</span>
-            <h1 className="text-4xl font-bold text-white">Choose the right AMPNM license for your network</h1>
-            <p className="text-gray-200 max-w-2xl">Curated plans with clear limits and quick add-to-cart actions.</p>
+            <span className="accent-badge"><Package className="w-4 h-4" /> Product Catalog</span>
+            <h1 className="text-4xl font-bold text-white">Choose the right license for your needs</h1>
+            <p className="text-gray-200 max-w-2xl">AMPNM network monitoring & LifeOS productivity — curated plans with quick add-to-cart.</p>
             <div className="flex flex-wrap gap-3 text-gray-200 text-sm">
               <span className="meta-pill"><Smartphone className="w-4 h-4" /> Mobile-ready</span>
               <span className="meta-pill"><Shield className="w-4 h-4" /> Secured checkout</span>
