@@ -122,26 +122,44 @@ const AdminLicenses = () => {
           <table className="min-w-full bg-gray-700 rounded-lg">
             <thead>
               <tr className="bg-gray-600 text-gray-200 uppercase text-sm">
-                <th className="py-3 px-4 text-left">Key</th>
-                <th className="py-3 px-4 text-left">Customer</th>
-                <th className="py-3 px-4 text-left">Product</th>
-                <th className="py-3 px-4 text-left">Status</th>
-                <th className="py-3 px-4 text-left">Devices</th>
-                <th className="py-3 px-4 text-left">Expires</th>
-                <th className="py-3 px-4 text-center">Actions</th>
+                 <th className="py-3 px-4 text-left">Key</th>
+                 <th className="py-3 px-4 text-left">Customer</th>
+                 <th className="py-3 px-4 text-left">Product</th>
+                 <th className="py-3 px-4 text-left">Status</th>
+                 <th className="py-3 px-4 text-left">Devices</th>
+                 <th className="py-3 px-4 text-left">Bound To</th>
+                 <th className="py-3 px-4 text-left">Expires</th>
+                 <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="text-gray-300 text-sm">
               {filtered.map(l => (
                 <tr key={l.id} className="border-b border-gray-600 hover:bg-gray-600">
-                  <td className="py-3 px-4 font-mono text-xs break-all">{l.license_key}</td>
-                  <td className="py-3 px-4">{l.customer_email}</td>
-                  <td className="py-3 px-4">{(l.products as any)?.name || 'N/A'}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs ${l.status === 'active' || l.status === 'free' ? 'bg-green-500' : 'bg-red-500'}`}>{l.status}</span>
-                  </td>
-                  <td className="py-3 px-4">{l.current_devices}/{l.max_devices}</td>
-                  <td className="py-3 px-4">{l.expires_at ? new Date(l.expires_at).toLocaleDateString() : 'Never'}</td>
+                   <td className="py-3 px-4 font-mono text-xs break-all">{l.license_key}</td>
+                   <td className="py-3 px-4">{l.customer_email}</td>
+                   <td className="py-3 px-4">
+                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                       (l.products as any)?.category === 'AMPNM' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                       (l.products as any)?.category === 'LifeOS' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                       'bg-gray-500/20 text-gray-300'
+                     }`}>
+                       {(l.products as any)?.name || 'N/A'}
+                     </span>
+                   </td>
+                   <td className="py-3 px-4">
+                     <span className={`px-2 py-1 rounded-full text-xs ${l.status === 'active' || l.status === 'free' ? 'bg-green-500' : 'bg-red-500'}`}>{l.status}</span>
+                   </td>
+                   <td className="py-3 px-4">{l.current_devices}/{l.max_devices}</td>
+                   <td className="py-3 px-4 text-xs">
+                     {l.bound_installation_id ? (
+                       <span className="font-mono text-yellow-300" title={l.bound_installation_id}>
+                         {l.bound_installation_id.slice(0, 20)}...
+                       </span>
+                     ) : (
+                       <span className="text-gray-500">Unbound</span>
+                     )}
+                   </td>
+                   <td className="py-3 px-4">{l.expires_at ? new Date(l.expires_at).toLocaleDateString() : 'Never'}</td>
                   <td className="py-3 px-4 text-center whitespace-nowrap">
                     <button onClick={() => setEditModal({ ...l, expires_at: l.expires_at?.split('T')[0] || '' })} className="btn-admin-primary text-xs px-2 py-1 mr-1"><Edit className="w-3 h-3" /></button>
                     {l.bound_installation_id && <button onClick={() => handleRelease(l.id)} className="btn-admin-secondary text-xs px-2 py-1 mr-1"><Unlink className="w-3 h-3" /></button>}
