@@ -1,67 +1,88 @@
 
 
-# License Verification Endpoint - Stable URL Strategy
+# LifeOS Docker Install System -- Admin + License Setup (like AMPNM)
 
-## Problem
+## Overview
 
-Currently, Docker AMPNM apps connect to the backend edge function directly at a backend-specific URL. If you change your backend or database, the URL changes and all Docker clients lose their license connection.
+Create a Docker entrypoint script for LifeOS that mirrors the AMPNM Docker install experience: on first launch, the system prompts for admin credentials and then asks for a license key before granting access. This adds a `docker-entrypoint.sh` to the LifeOS backend container, enhances the backend server to enforce a first-run setup flow, and updates the frontend Setup page to work seamlessly within Docker.
 
-You want a stable URL like `https://portal.itsupport.com.bd/verify_license` that never changes, regardless of backend migrations.
+## What Changes
 
-## Important Limitation
+### 1. Create `lifeos/docker/backend/docker-entrypoint.sh`
+A bash entrypoint script (similar to `docker-ampnm/docker-entrypoint.sh`) that:
+- Prints a branded LifeOS startup banner
+- Checks for `APP_LICENSE_KEY` environment variable and reports status
+- Verifies critical file integrity (`server.js`, `package.json`)
+- Sets secure file permissions
+- Launches the Node.js backend server
 
-Your portal is a React single-page application (SPA). React apps run entirely in the browser and **cannot handle server-side POST requests** from Docker's PHP `file_get_contents()`. A React route at `/verify_license` would only render a webpage -- it cannot process the encrypted license API calls from Docker.
+### 2. Update `lifeos/docker/backend/Dockerfile`
+- Copy the new entrypoint script into the container
+- Make it executable
+- Set it as the `ENTRYPOINT` instead of using bare `CMD`
 
-The actual license verification **must** use a backend function, which is what is already deployed and working.
+### 3. Enhance `lifeos/docker/backend/server.js` -- First-Run Setup Gate
+Add a setup-detection route and enforce the setup flow:
+- New `GET /api/setup/status` returns `{ needsSetup: true }` when no admin user has been configured via the wizard (checks `app_settings.setup_complete`)
+- New `POST /api/setup/admin` endpoint accepts admin email, password, and name -- creates the admin account and marks setup as started (but not complete until license is configured)
+- Modify `POST /api/license/setup` to mark `setup_complete = true` only after successful license activation
+- Update `seedDefaultAdmin()` to skip seeding if an admin was already created through the wizard (so the Docker user's chosen credentials take priority)
+- Add a setup-enforcement middleware: if `setup_complete` is false, block all routes except `/api/setup/*`, `/api/license/*`, and `/api/auth/*`
 
-## Plan
+### 4. Update `lifeos/src/pages/Setup.tsx` -- Docker-Aware Flow
+Adjust the existing 6-step wizard to detect Docker mode and simplify:
+- On mount, call `GET /api/setup/status` to check if setup is needed
+- If running in Docker (auto-detected via environment presets), skip the "environment" and "database" steps (Docker Compose pre-configures the database)
+- Show only: Welcome -> Admin Account -> License Key -> Complete
+- The Admin step calls `POST /api/setup/admin` with the user's chosen credentials
+- The License step works as it does now, calling `POST /api/license/setup`
+- On completion, redirect to the login page with the new admin credentials
 
-### 1. Add an Admin "License Endpoint" management page
-
-Create a new admin page at `/admin/license-endpoint` that displays:
-- The current active license verification endpoint URL
-- A "Copy URL" button for easy copying
-- Migration instructions for Docker clients
-- A step-by-step guide for updating Docker `config.php`
-
-### 2. Add navigation link
-
-Add a "License Endpoint" link in the admin navigation menu.
-
-### 3. Show Docker migration notes on the page
-
-The page will include clear instructions:
-
-```text
-Current Endpoint URL:
-https://[project-id].supabase.co/functions/v1/verify-license
-
-To configure your Docker AMPNM app:
-1. Open your config.php file
-2. Change LICENSE_API_URL to the URL above
-3. Restart your Docker container
-
-If you migrate to a new backend:
-1. Export your database backup from Admin > Backup
-2. Set up the new backend and import the backup
-3. Deploy the verify-license function
-4. Update LICENSE_API_URL in all Docker clients
-```
-
-### 4. No changes to the existing edge function
-
-The `verify-license` edge function already works correctly with AES-256-CBC encryption, installation binding, expiry checks, and grace periods. No modifications needed.
+### 5. Update `lifeos/docker-compose.yml`
+- Add `APP_LICENSE_KEY` environment variable placeholder (like AMPNM)
+- Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` optional env vars for headless setup
+- Add a comment block explaining the first-run setup wizard
 
 ## Technical Details
 
-### New file
-- `src/pages/admin/AdminLicenseEndpoint.tsx` -- admin page showing endpoint URL, copy button, and migration docs
+```text
+Docker Start Flow:
++----------------------------+
+| docker-compose up          |
++----------------------------+
+           |
+           v
++----------------------------+
+| docker-entrypoint.sh       |
+| - Print banner             |
+| - Check APP_LICENSE_KEY    |
+| - Verify files             |
+| - Start node server.js     |
++----------------------------+
+           |
+           v
++----------------------------+
+| server.js starts           |
+| - Connect to PostgreSQL    |
+| - Ensure schema exists     |
+| - Check setup_complete     |
+| - If false: enforce setup  |
++----------------------------+
+           |
+           v
++----------------------------+
+| User visits http://...     |
+| Frontend detects Docker    |
+| Shows: Admin -> License    |
++----------------------------+
+```
 
-### Modified files
-- `src/App.tsx` -- add route `/admin/license-endpoint`
-- `src/components/PortalNavbar.tsx` -- add navigation link
+### Files to Create
+- `lifeos/docker/backend/docker-entrypoint.sh` -- Startup script with banner, checks, and server launch
 
-### Recommendation for a truly stable URL
-
-If you want `https://portal.itsupport.com.bd/verify_license.php` to always work regardless of backend changes, you would need to set up a **reverse proxy** on your web server (e.g., Nginx or Apache) that forwards POST requests to the current backend function URL. This is done outside Lovable, at your domain's hosting/server level. The admin page will include these Nginx/Apache configuration examples as well.
+### Files to Modify
+- `lifeos/docker/backend/Dockerfile` -- Add entrypoint script, set ENTRYPOINT
+- `lifeos/docker/backend/server.js` -- Add setup gate, admin creation endpoint, skip default seed when wizard-configured
+- `lifeos/src/pages/Setup.tsx` -- Docker-aware simplified flow (Admin + License only)
+- `lifeos/docker-compose.yml` -- Add env var placeholders and comments
 
