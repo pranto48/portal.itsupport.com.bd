@@ -165,6 +165,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS license_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  setting_key VARCHAR(255) UNIQUE NOT NULL,
+  setting_value TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 `;
 
 const MYSQL_SCHEMA = `
@@ -215,6 +223,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
   onboarding_enabled BOOLEAN DEFAULT TRUE,
   setup_complete BOOLEAN DEFAULT FALSE,
   db_type VARCHAR(20) DEFAULT 'mysql',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS license_settings (
+  id CHAR(36) PRIMARY KEY,
+  setting_key VARCHAR(255) UNIQUE NOT NULL,
+  setting_value TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -446,9 +462,24 @@ routes['POST /api/auth/logout'] = async (req, res) => {
   sendJson(res, 200, { success: true });
 };
 
-// --- License Verification (Proxy to portal.itsupport.com.bd) ---
-const LICENSE_VERIFY_URL = 'https://portal.itsupport.com.bd/verify_license.php';
+// --- License Verification via Supabase Edge Function ---
+const LICENSE_VERIFY_URL = process.env.LICENSE_API_URL || 'https://abcytwvuntyicdknpzju.supabase.co/functions/v1/verify-license';
 const LICENSE_ENCRYPTION_KEY = 'ITSupportBD_SecureKey_2024';
+const LICENSE_VERIFICATION_INTERVAL = 86400; // 24 hours
+const LICENSE_GRACE_PERIOD_DAYS = 7;
+const LICENSE_OFFLINE_MAX_DAYS = 30;
+const LICENSE_OFFLINE_WARNING_DAYS = 9;
+
+// In-memory license cache (persisted to DB)
+let licenseCache = {
+  status: 'unknown',
+  message: 'License status unknown.',
+  max_devices: 0,
+  expires_at: null,
+  last_verified: 0,
+  last_verified_key: null,
+  last_successful_connection: null,
+};
 
 function decryptLicenseData(encryptedBase64) {
   try {
@@ -458,7 +489,6 @@ function decryptLicenseData(encryptedBase64) {
     const ciphertextBase64 = data.slice(ivLength).toString('utf8');
     const ciphertext = Buffer.from(ciphertextBase64, 'base64');
 
-    // Derive key: PHP uses the key directly for aes-256-cbc (32 bytes, padded with null bytes)
     const keyBuffer = Buffer.alloc(32);
     Buffer.from(LICENSE_ENCRYPTION_KEY, 'utf8').copy(keyBuffer);
 
@@ -472,53 +502,112 @@ function decryptLicenseData(encryptedBase64) {
   }
 }
 
-// Get installation ID from app_settings or generate one
+// Get or create installation ID
 async function getOrCreateInstallationId() {
   try {
-    const rows = await query("SELECT id FROM app_settings WHERE id = 'installation_id'");
-    if (rows.length > 0) return rows[0].id;
-    
-    const installId = 'LIFEOS-' + uuid();
     if (dbType === 'postgresql') {
-      await query("INSERT INTO app_settings (id, setup_complete) VALUES ($1, false) ON CONFLICT DO NOTHING", [installId]);
+      const rows = await query("SELECT setting_value FROM license_settings WHERE setting_key = 'installation_id'");
+      if (rows.length > 0 && rows[0].setting_value) return rows[0].setting_value;
+      
+      const installId = 'LIFEOS-' + uuid();
+      await query(
+        "INSERT INTO license_settings (id, setting_key, setting_value) VALUES ($1, 'installation_id', $2) ON CONFLICT (setting_key) DO NOTHING",
+        [uuid(), installId]
+      );
+      return installId;
+    } else {
+      const rows = await query("SELECT setting_value FROM license_settings WHERE setting_key = 'installation_id'");
+      if (rows.length > 0 && rows[0].setting_value) return rows[0].setting_value;
+      
+      const installId = 'LIFEOS-' + uuid();
+      await query(
+        "INSERT IGNORE INTO license_settings (id, setting_key, setting_value) VALUES (?, 'installation_id', ?)",
+        [uuid(), installId]
+      );
+      return installId;
     }
-    return installId;
   } catch {
     return 'LIFEOS-' + uuid();
   }
 }
 
-routes['POST /api/license/verify'] = async (req, res) => {
-  const { license_key } = await parseBody(req);
-  if (!license_key) {
-    sendJson(res, 400, { success: false, message: 'License key is required.' });
-    return;
+// Get/set license settings from DB
+async function getLicenseSetting(key) {
+  try {
+    const rows = await query("SELECT setting_value FROM license_settings WHERE setting_key = $1", [key]);
+    return rows.length > 0 ? rows[0].setting_value : null;
+  } catch { return null; }
+}
+
+async function setLicenseSetting(key, value) {
+  try {
+    if (dbType === 'postgresql') {
+      await query(
+        "INSERT INTO license_settings (id, setting_key, setting_value) VALUES ($1, $2, $3) ON CONFLICT (setting_key) DO UPDATE SET setting_value = $3, updated_at = NOW()",
+        [uuid(), key, value]
+      );
+    } else {
+      await query(
+        "INSERT INTO license_settings (id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP",
+        [uuid(), key, value]
+      );
+    }
+  } catch (err) {
+    console.error(`Error setting license setting ${key}:`, err.message);
+  }
+}
+
+// Load license cache from DB
+async function loadLicenseCache() {
+  const cached = await getLicenseSetting('license_cache');
+  if (cached) {
+    try {
+      const data = JSON.parse(cached);
+      Object.assign(licenseCache, data);
+    } catch {}
+  }
+}
+
+// Save license cache to DB
+async function saveLicenseCache() {
+  await setLicenseSetting('license_cache', JSON.stringify(licenseCache));
+}
+
+// Core license verification function
+async function verifyLicenseWithPortal(licenseKey, force = false) {
+  if (!licenseKey) {
+    licenseCache.status = 'unconfigured';
+    licenseCache.message = 'Application license key is missing.';
+    return licenseCache;
   }
 
+  // Check if key changed
+  if (licenseCache.last_verified_key !== licenseKey) force = true;
+
+  // Use cached data if within interval
+  if (!force && licenseCache.last_verified && (Date.now() / 1000 - licenseCache.last_verified) < LICENSE_VERIFICATION_INTERVAL) {
+    return licenseCache;
+  }
+
+  const installationId = await getOrCreateInstallationId();
+  let deviceCount = 1;
   try {
-    const installationId = await getOrCreateInstallationId();
-    const payload = getAuthUser(req);
-    const userId = payload?.sub || 'anonymous';
+    const countRows = await query('SELECT COUNT(*) as cnt FROM users');
+    deviceCount = parseInt(countRows[0].cnt) || 1;
+  } catch {}
 
-    // Count active users for current_device_count
-    let deviceCount = 1;
-    try {
-      const countRows = await query('SELECT COUNT(*) as cnt FROM users');
-      deviceCount = parseInt(countRows[0].cnt) || 1;
-    } catch {}
+  const postData = JSON.stringify({
+    app_license_key: licenseKey,
+    user_id: 'lifeos-backend',
+    current_device_count: deviceCount,
+    installation_id: installationId,
+  });
 
-    // Call the portal verification endpoint
+  try {
     const https = require('https');
     const http_mod = require('http');
     const url = new URL(LICENSE_VERIFY_URL);
     const requestModule = url.protocol === 'https:' ? https : http_mod;
-
-    const postData = JSON.stringify({
-      app_license_key: license_key,
-      user_id: userId,
-      current_device_count: deviceCount,
-      installation_id: installationId,
-    });
 
     const portalResponse = await new Promise((resolve, reject) => {
       const options = {
@@ -530,6 +619,7 @@ routes['POST /api/license/verify'] = async (req, res) => {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
         },
+        rejectUnauthorized: false,
       };
 
       const request = requestModule.request(options, (response) => {
@@ -539,36 +629,180 @@ routes['POST /api/license/verify'] = async (req, res) => {
       });
 
       request.on('error', reject);
-      request.setTimeout(10000, () => {
-        request.destroy();
-        reject(new Error('License verification timeout'));
-      });
+      request.setTimeout(10000, () => { request.destroy(); reject(new Error('Timeout')); });
       request.write(postData);
       request.end();
     });
 
-    // Decrypt the response
-    const decrypted = decryptLicenseData(portalResponse);
-    if (decrypted) {
-      sendJson(res, 200, decrypted);
-    } else {
-      // Try as plain JSON fallback
+    const result = decryptLicenseData(portalResponse);
+    if (!result) {
+      // Try plain JSON fallback
       try {
-        sendJson(res, 200, JSON.parse(portalResponse));
+        const plain = JSON.parse(portalResponse);
+        Object.assign(result || {}, plain);
       } catch {
-        sendJson(res, 500, { success: false, message: 'Failed to verify license with portal.' });
+        licenseCache.status = 'error';
+        licenseCache.message = 'Failed to decrypt license response.';
+        licenseCache.last_verified = Math.floor(Date.now() / 1000);
+        await saveLicenseCache();
+        return licenseCache;
       }
     }
+
+    // Successful connection - reset offline counter
+    licenseCache.last_successful_connection = Math.floor(Date.now() / 1000);
+    await setLicenseSetting('last_successful_portal_connection', String(licenseCache.last_successful_connection));
+
+    licenseCache.status = result.actual_status || 'invalid';
+    licenseCache.message = result.message || 'License is invalid.';
+    licenseCache.max_devices = result.max_devices || 0;
+    licenseCache.expires_at = result.expires_at || null;
+
+    // Handle grace period
+    if (licenseCache.status === 'expired' && licenseCache.expires_at) {
+      const expiryTs = new Date(licenseCache.expires_at).getTime() / 1000;
+      const graceEnd = expiryTs + LICENSE_GRACE_PERIOD_DAYS * 86400;
+      if (Date.now() / 1000 < graceEnd) {
+        licenseCache.status = 'grace_period';
+        licenseCache.message = `License expired. Grace period until ${new Date(graceEnd * 1000).toISOString()}.`;
+      } else {
+        licenseCache.status = 'disabled';
+        licenseCache.message = 'License expired and grace period ended.';
+      }
+    }
+
+    licenseCache.last_verified = Math.floor(Date.now() / 1000);
+    licenseCache.last_verified_key = licenseKey;
+    await saveLicenseCache();
+
+    console.log(`LICENSE_INFO: Verification completed. Status: ${licenseCache.status}`);
+    return licenseCache;
+
+  } catch (err) {
+    console.error('LICENSE_ERROR: Portal unreachable:', err.message);
+
+    // Offline mode handling
+    let lastConn = licenseCache.last_successful_connection;
+    if (!lastConn) {
+      const stored = await getLicenseSetting('last_successful_portal_connection');
+      lastConn = stored ? parseInt(stored) : Math.floor(Date.now() / 1000);
+      if (!stored) await setLicenseSetting('last_successful_portal_connection', String(lastConn));
+      licenseCache.last_successful_connection = lastConn;
+    }
+
+    const daysOffline = Math.floor((Date.now() / 1000 - lastConn) / 86400);
+
+    if (daysOffline >= LICENSE_OFFLINE_MAX_DAYS) {
+      licenseCache.status = 'offline_expired';
+      licenseCache.message = `Disabled: Unable to verify for ${daysOffline} days.`;
+    } else if (daysOffline >= LICENSE_OFFLINE_WARNING_DAYS) {
+      const remaining = LICENSE_OFFLINE_MAX_DAYS - daysOffline;
+      licenseCache.status = 'offline_warning';
+      licenseCache.message = `WARNING: Offline for ${daysOffline} days. Disabled in ${remaining} days.`;
+    } else {
+      licenseCache.status = 'offline_mode';
+      licenseCache.message = `Offline mode (Day ${daysOffline}/${LICENSE_OFFLINE_MAX_DAYS}).`;
+    }
+
+    licenseCache.last_verified = Math.floor(Date.now() / 1000);
+    await saveLicenseCache();
+    return licenseCache;
+  }
+}
+
+// API: Verify license
+routes['POST /api/license/verify'] = async (req, res) => {
+  const { license_key } = await parseBody(req);
+  if (!license_key) {
+    sendJson(res, 400, { success: false, message: 'License key is required.' });
+    return;
+  }
+
+  try {
+    const result = await verifyLicenseWithPortal(license_key, true);
+    const isActive = ['active', 'free', 'grace_period', 'offline_mode', 'offline_warning'].includes(result.status);
+
+    // Save license key on success
+    if (isActive) {
+      await setLicenseSetting('app_license_key', license_key);
+    }
+
+    sendJson(res, 200, {
+      success: isActive,
+      message: result.message,
+      actual_status: result.status,
+      max_devices: result.max_devices,
+      expires_at: result.expires_at,
+    });
   } catch (err) {
     console.error('License verification error:', err.message);
     sendJson(res, 500, { success: false, message: 'License verification failed: ' + err.message });
   }
 };
 
-// Get current license status
+// API: Get license status (for UI)
 routes['GET /api/license/status'] = async (req, res) => {
-  sendJson(res, 200, { message: 'Use POST /api/license/verify with license_key to verify.' });
+  await loadLicenseCache();
+  const licenseKey = await getLicenseSetting('app_license_key');
+  const hasKey = !!licenseKey;
+
+  sendJson(res, 200, {
+    configured: hasKey,
+    status: licenseCache.status,
+    message: licenseCache.message,
+    max_devices: licenseCache.max_devices,
+    expires_at: licenseCache.expires_at,
+    last_verified: licenseCache.last_verified,
+  });
 };
+
+// API: Setup license (initial activation)
+routes['POST /api/license/setup'] = async (req, res) => {
+  const { license_key } = await parseBody(req);
+  if (!license_key || license_key.trim().length === 0) {
+    sendJson(res, 400, { success: false, message: 'License key is required.' });
+    return;
+  }
+
+  try {
+    const result = await verifyLicenseWithPortal(license_key.trim(), true);
+    const isActive = ['active', 'free', 'grace_period'].includes(result.status);
+
+    if (isActive) {
+      await setLicenseSetting('app_license_key', license_key.trim());
+      sendJson(res, 200, { success: true, message: 'License activated successfully!', status: result.status });
+    } else {
+      sendJson(res, 200, { success: false, message: result.message, status: result.status });
+    }
+  } catch (err) {
+    sendJson(res, 500, { success: false, message: 'Verification failed: ' + err.message });
+  }
+};
+
+// --- License Enforcement Middleware ---
+const LICENSE_EXEMPT_ROUTES = [
+  'POST /api/license/verify',
+  'POST /api/license/setup',
+  'GET /api/license/status',
+  'POST /api/setup/test-connection',
+  'GET /api/setup/status',
+  'POST /api/setup/initialize',
+  'POST /api/auth/login',
+  'POST /api/auth/logout',
+];
+
+async function checkLicenseMiddleware(req) {
+  const routeKey = `${req.method} ${req.url.split('?')[0]}`;
+  if (LICENSE_EXEMPT_ROUTES.includes(routeKey)) return true;
+
+  // If license not loaded yet, try to load
+  if (licenseCache.status === 'unknown') {
+    await loadLicenseCache();
+  }
+
+  const allowedStatuses = ['active', 'free', 'grace_period', 'offline_mode', 'offline_warning', 'unknown'];
+  return allowedStatuses.includes(licenseCache.status);
+}
 
 // --- HTTP Server ---
 const server = http.createServer(async (req, res) => {
@@ -580,6 +814,17 @@ const server = http.createServer(async (req, res) => {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     });
     res.end();
+    return;
+  }
+
+  // License enforcement
+  const licenseOk = await checkLicenseMiddleware(req);
+  if (!licenseOk) {
+    sendJson(res, 403, {
+      message: 'License is not active. Please configure a valid license.',
+      license_status: licenseCache.status,
+      license_message: licenseCache.message,
+    });
     return;
   }
 
@@ -733,6 +978,28 @@ async function start() {
         await seedDefaultAdmin();
       } catch (err) {
         console.error('❌ Admin seeding failed after retries:', err.message);
+      }
+
+      // Auto-verify license on startup
+      try {
+        await loadLicenseCache();
+        const envKey = process.env.APP_LICENSE_KEY;
+        const storedKey = await getLicenseSetting('app_license_key');
+        const licenseKey = envKey || storedKey;
+
+        if (licenseKey) {
+          // Save env key to DB if provided
+          if (envKey && envKey !== storedKey) {
+            await setLicenseSetting('app_license_key', envKey);
+          }
+          console.log('🔑 Verifying license on startup...');
+          const result = await verifyLicenseWithPortal(licenseKey, true);
+          console.log(`🔑 License status: ${result.status} - ${result.message}`);
+        } else {
+          console.log('⚠️ No license key configured. Set APP_LICENSE_KEY in docker-compose.yml or use /api/license/setup');
+        }
+      } catch (err) {
+        console.error('⚠️ License check on startup failed:', err.message);
       }
     } else {
       console.error('❌ Could not connect to database after all retries');

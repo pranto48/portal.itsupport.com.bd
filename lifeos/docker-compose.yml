@@ -35,6 +35,8 @@ services:
       - DB_USER=lifeos
       - DB_PASSWORD=lifeos_secret_password
       - JWT_SECRET=lifeos-change-this-secret
+      - LICENSE_API_URL=https://abcytwvuntyicdknpzju.supabase.co/functions/v1/verify-license
+      - APP_LICENSE_KEY=${APP_LICENSE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
