@@ -7,6 +7,16 @@ const ENCRYPTION_KEY = "ITSupportBD_SecureKey_2024";
 const MAX_FAILED_ATTEMPTS = 10;
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 
+// Product detection from installation ID prefix
+type ProductType = "AMPNM" | "LifeOS" | "unknown";
+
+function detectProduct(installationId: string): ProductType {
+  if (installationId.startsWith("LIFEOS-")) return "LifeOS";
+  if (installationId.startsWith("AMPNM-")) return "AMPNM";
+  // Legacy AMPNM installations may not have a prefix
+  return "AMPNM";
+}
+
 async function hashString(str: string): Promise<string> {
   const data = new TextEncoder().encode(str);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -41,7 +51,8 @@ async function logVerification(
   ip: string,
   installationId: string | null,
   result: string,
-  reason: string
+  reason: string,
+  product: ProductType = "unknown"
 ) {
   try {
     await supabase.from("license_verification_log").insert({
@@ -49,7 +60,7 @@ async function logVerification(
       ip_address: ip,
       installation_id: installationId,
       result,
-      reason,
+      reason: `[${product}] ${reason}`,
     });
   } catch (e) {
     console.error("Failed to log verification:", e);
@@ -70,7 +81,7 @@ async function checkRateLimit(
 
   if (error) {
     console.error("Rate limit check error:", error);
-    return false; // fail open to avoid blocking legitimate users
+    return false;
   }
 
   return (count ?? 0) >= MAX_FAILED_ATTEMPTS;
@@ -93,7 +104,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Only allow POST
   if (req.method !== "POST") {
     return new Response(
       await encryptLicenseData({ success: false, message: "Method not allowed.", actual_status: "invalid_request" }),
@@ -132,56 +142,83 @@ Deno.serve(async (req) => {
     const currentDeviceCount = Number(input.current_device_count ?? 0);
     const installationId = String(input.installation_id ?? "").trim();
 
+    // Detect product from installation ID
+    const product = detectProduct(installationId);
+    console.log(`License verification request: product=${product}, ip=${clientIp}, installId=${installationId.slice(0, 20)}...`);
+
     // Validate required fields
     if (!appLicenseKey || !userId || !installationId) {
       const keyHash = appLicenseKey ? await hashString(appLicenseKey) : "empty";
-      await logVerification(supabase, keyHash, clientIp, installationId || null, "failed", "missing_fields");
+      await logVerification(supabase, keyHash, clientIp, installationId || null, "failed", "missing_fields", product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "Missing required parameters.", actual_status: "invalid_request" }),
+        await encryptLicenseData({ success: false, message: "Missing required parameters.", actual_status: "invalid_request", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
 
-    // Validate input lengths to prevent abuse
+    // Validate input lengths
     if (appLicenseKey.length > 500 || userId.length > 500 || installationId.length > 500) {
       return new Response(
-        await encryptLicenseData({ success: false, message: "Invalid request.", actual_status: "invalid_request" }),
+        await encryptLicenseData({ success: false, message: "Invalid request.", actual_status: "invalid_request", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
 
     const licenseKeyHash = await hashString(appLicenseKey);
 
-    // Fetch the license
+    // Fetch the license WITH product info via join
     const { data: license, error: fetchError } = await supabase
       .from("licenses")
-      .select("*")
+      .select("*, products(id, name, category)")
       .eq("license_key", appLicenseKey)
       .maybeSingle();
 
     if (fetchError) {
       console.error("DB error fetching license:", fetchError.message);
-      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "error", "db_error");
+      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "error", "db_error", product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "Verification service error.", actual_status: "error" }),
+        await encryptLicenseData({ success: false, message: "Verification service error.", actual_status: "error", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
 
     if (!license) {
-      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "not_found");
-      // Generic message - don't reveal whether key exists
+      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "not_found", product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "License verification failed.", actual_status: "not_found" }),
+        await encryptLicenseData({ success: false, message: "License verification failed.", actual_status: "not_found", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
 
+    // Product-aware validation: ensure the license belongs to the correct product category
+    const licenseCategory = (license.products as any)?.category as string | undefined;
+    const licenseProductName = (license.products as any)?.name as string | undefined;
+
+    if (licenseCategory && product !== "unknown") {
+      const categoryMatch =
+        (product === "LifeOS" && licenseCategory === "LifeOS") ||
+        (product === "AMPNM" && licenseCategory === "AMPNM");
+
+      if (!categoryMatch) {
+        await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", `product_mismatch:expected=${product},got=${licenseCategory}`, product);
+        return new Response(
+          await encryptLicenseData({
+            success: false,
+            message: `This license is for ${licenseCategory}, not ${product}.`,
+            actual_status: "product_mismatch",
+            product,
+            license_product: licenseCategory,
+          }),
+          { headers: { "Content-Type": "text/plain" } }
+        );
+      }
+    }
+
     // Check license status
     if (license.status !== "active" && license.status !== "free") {
-      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", `status_${license.status}`);
+      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", `status_${license.status}`, product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "License verification failed.", actual_status: license.status }),
+        await encryptLicenseData({ success: false, message: "License verification failed.", actual_status: license.status, product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
@@ -192,9 +229,9 @@ Deno.serve(async (req) => {
         .from("licenses")
         .update({ status: "expired", updated_at: new Date().toISOString() })
         .eq("id", license.id);
-      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "expired");
+      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "expired", product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "License has expired.", actual_status: "expired" }),
+        await encryptLicenseData({ success: false, message: "License has expired.", actual_status: "expired", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
@@ -206,9 +243,9 @@ Deno.serve(async (req) => {
         .update({ bound_installation_id: installationId, updated_at: new Date().toISOString() })
         .eq("id", license.id);
     } else if (license.bound_installation_id !== installationId) {
-      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "installation_mismatch");
+      await logVerification(supabase, licenseKeyHash, clientIp, installationId, "failed", "installation_mismatch", product);
       return new Response(
-        await encryptLicenseData({ success: false, message: "License is bound to another installation.", actual_status: "in_use" }),
+        await encryptLicenseData({ success: false, message: "License is bound to another installation.", actual_status: "in_use", product }),
         { headers: { "Content-Type": "text/plain" } }
       );
     }
@@ -224,7 +261,7 @@ Deno.serve(async (req) => {
       .eq("id", license.id);
 
     // Log success
-    await logVerification(supabase, licenseKeyHash, clientIp, installationId, "success", "valid");
+    await logVerification(supabase, licenseKeyHash, clientIp, installationId, "success", "valid", product);
 
     return new Response(
       await encryptLicenseData({
@@ -233,6 +270,9 @@ Deno.serve(async (req) => {
         max_devices: license.max_devices ?? 1,
         actual_status: license.status,
         expires_at: license.expires_at,
+        product,
+        product_name: licenseProductName ?? null,
+        product_category: licenseCategory ?? null,
       }),
       { headers: { "Content-Type": "text/plain" } }
     );
