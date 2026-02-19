@@ -995,6 +995,22 @@ async function start() {
           console.log('🔑 Verifying license on startup...');
           const result = await verifyLicenseWithPortal(licenseKey, true);
           console.log(`🔑 License status: ${result.status} - ${result.message}`);
+
+          // Schedule periodic re-verification every 30 days
+          const RECHECK_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+          setInterval(async () => {
+            try {
+              const currentKey = await getLicenseSetting('app_license_key');
+              if (currentKey) {
+                console.log('🔄 Periodic license re-verification (30-day interval)...');
+                const recheckResult = await verifyLicenseWithPortal(currentKey, true);
+                console.log(`🔄 License recheck: ${recheckResult.status} - ${recheckResult.message}`);
+              }
+            } catch (recheckErr) {
+              console.error('⚠️ Periodic license recheck failed:', recheckErr.message);
+            }
+          }, RECHECK_INTERVAL_MS);
+          console.log('⏰ Periodic license re-check scheduled (every 30 days)');
         } else {
           console.log('⚠️ No license key configured. Set APP_LICENSE_KEY in docker-compose.yml or use /api/license/setup');
         }
