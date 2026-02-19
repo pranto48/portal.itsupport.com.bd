@@ -32,6 +32,12 @@ import lifeosProjects from '@/assets/lifeos-projects.png';
 import lifeosTickets from '@/assets/lifeos-tickets.png';
 import lifeosSettings from '@/assets/lifeos-settings.png';
 
+import ampnmMap from '@/assets/ampnm-map.png';
+import ampnmDashboard from '@/assets/ampnm-dashboard.png';
+import ampnmDevicesImg from '@/assets/ampnm-devices.png';
+import ampnmPingHistory from '@/assets/ampnm-ping-history.png';
+import ampnmDocs from '@/assets/ampnm-docs.png';
+
 const lifeosScreenshots = [
   { src: lifeosDashboard, label: 'Customizable Dashboard' },
   { src: lifeosCalendar, label: 'Calendar with Google & Outlook Sync' },
@@ -59,6 +65,14 @@ const lifeosFeatures = [
   { icon: Settings, label: 'Self-Hosted', desc: 'Docker, Kubernetes, or cloud deployment' },
 ];
 
+const ampnmScreenshots = [
+  { src: ampnmDashboard, label: 'Real-time Dashboard' },
+  { src: ampnmMap, label: 'Network Topology Map' },
+  { src: ampnmDevicesImg, label: 'Device Inventory' },
+  { src: ampnmPingHistory, label: 'Ping History & Analytics' },
+  { src: ampnmDocs, label: 'Documentation & Setup Guide' },
+];
+
 const ampnmFeatures = [
   { icon: Network, label: 'Network Mapping', desc: 'Visual topology with live device status' },
   { icon: Monitor, label: 'Device Monitoring', desc: 'Real-time ping, SNMP, and port checks' },
@@ -71,6 +85,7 @@ const ampnmFeatures = [
 const Products = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [ampnmSlide, setAmpnmSlide] = useState(0);
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
@@ -82,6 +97,13 @@ const Products = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % lifeosScreenshots.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length);
     }, 5000);
     return () => clearInterval(timer);
   }, []);
@@ -150,6 +172,41 @@ const Products = () => {
             <Network className="w-5 h-5" /> AMPNM — Network Monitoring
           </div>
           <p className="text-gray-300 text-center max-w-xl">Advanced Multi-Platform Network Monitoring. Docker-based with portal integration for real-time topology, alerting, and reporting.</p>
+        </div>
+
+        {/* AMPNM screenshot carousel */}
+        <div className="glass-card !p-0 overflow-hidden mb-8 relative group">
+          <div className="relative aspect-video">
+            <img
+              src={ampnmScreenshots[ampnmSlide].src}
+              alt={ampnmScreenshots[ampnmSlide].label}
+              className="w-full h-full object-cover object-top transition-opacity duration-500"
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+              <p className="text-white font-medium text-center">{ampnmScreenshots[ampnmSlide].label}</p>
+            </div>
+            <button
+              onClick={() => setAmpnmSlide(prev => (prev - 1 + ampnmScreenshots.length) % ampnmScreenshots.length)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex justify-center gap-2 py-3 bg-gray-900/60">
+            {ampnmScreenshots.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setAmpnmSlide(i)}
+                className={`w-2 h-2 rounded-full transition-all ${i === ampnmSlide ? 'bg-blue-400 w-6' : 'bg-gray-500 hover:bg-gray-400'}`}
+              />
+            ))}
+          </div>
         </div>
 
         {/* AMPNM features grid */}
