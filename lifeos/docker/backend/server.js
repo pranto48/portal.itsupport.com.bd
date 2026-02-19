@@ -280,7 +280,7 @@ routes['POST /api/setup/test-connection'] = async (req, res) => {
   }
 };
 
-// Setup: Check status
+// Setup: Check status (enhanced for Docker-aware flow)
 routes['GET /api/setup/status'] = async (req, res) => {
   try {
     if (!dbClient) {
@@ -288,18 +288,107 @@ routes['GET /api/setup/status'] = async (req, res) => {
       try {
         dbClient = await connectDatabase({});
       } catch {
-        sendJson(res, 200, { isSetup: false });
+        sendJson(res, 200, { isSetup: false, needsSetup: true, isDocker: !!process.env.DB_HOST });
         return;
       }
     }
     const rows = await query('SELECT setup_complete, db_type FROM app_settings LIMIT 1');
+    const isDocker = !!process.env.DB_HOST;
+
     if (rows.length > 0 && rows[0].setup_complete) {
-      sendJson(res, 200, { isSetup: true, dbType: rows[0].db_type });
+      sendJson(res, 200, { isSetup: true, needsSetup: false, dbType: rows[0].db_type, isDocker });
     } else {
-      sendJson(res, 200, { isSetup: false });
+      // Check if any admin user exists (wizard-created)
+      let hasAdmin = false;
+      try {
+        const adminRows = await query("SELECT COUNT(*) as cnt FROM user_roles WHERE role = 'admin'");
+        hasAdmin = parseInt(adminRows[0].cnt) > 0;
+      } catch {}
+      sendJson(res, 200, { isSetup: false, needsSetup: true, hasAdmin, isDocker, dbType: rows.length > 0 ? rows[0].db_type : dbType });
     }
   } catch {
-    sendJson(res, 200, { isSetup: false });
+    sendJson(res, 200, { isSetup: false, needsSetup: true, isDocker: !!process.env.DB_HOST });
+  }
+};
+
+// Setup: Create admin account (Docker first-run wizard)
+routes['POST /api/setup/admin'] = async (req, res) => {
+  const body = await parseBody(req);
+  const { email, password, name } = body;
+
+  if (!email || !password) {
+    sendJson(res, 400, { success: false, message: 'Email and password are required.' });
+    return;
+  }
+  if (password.length < 6) {
+    sendJson(res, 400, { success: false, message: 'Password must be at least 6 characters.' });
+    return;
+  }
+
+  try {
+    // Ensure DB is connected and schema exists
+    if (!dbClient) {
+      dbClient = await connectDatabase({});
+      await ensureSchema();
+    }
+
+    const adminId = uuid();
+    const passwordHash = hashPassword(password);
+    const adminName = name || 'Administrator';
+
+    if (dbType === 'postgresql') {
+      await query(
+        `INSERT INTO users (id, email, password_hash, full_name, email_verified) 
+         VALUES ($1, $2, $3, $4, true) ON CONFLICT (email) DO UPDATE SET password_hash = $3, full_name = $4`,
+        [adminId, email, passwordHash, adminName]
+      );
+      const adminRows = await query('SELECT id FROM users WHERE email = $1', [email]);
+      const realAdminId = adminRows[0].id;
+      await query(
+        `INSERT INTO user_roles (id, user_id, role) VALUES ($1, $2, 'admin'::app_role) ON CONFLICT (user_id, role) DO NOTHING`,
+        [uuid(), realAdminId]
+      );
+      await query(
+        `INSERT INTO profiles (id, user_id, full_name, email) VALUES ($1, $2, $3, $4) 
+         ON CONFLICT (user_id) DO UPDATE SET full_name = $3, email = $4`,
+        [uuid(), realAdminId, adminName, email]
+      );
+      // Mark setup as started (not complete until license is done)
+      await query(
+        `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', false, $1)
+         ON CONFLICT (id) DO UPDATE SET setup_complete = false`,
+        [dbType]
+      );
+    } else {
+      await query(
+        `INSERT INTO users (id, email, password_hash, full_name, email_verified) 
+         VALUES (?, ?, ?, ?, true) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), full_name = VALUES(full_name)`,
+        [adminId, email, passwordHash, adminName]
+      );
+      const adminRows = await query('SELECT id FROM users WHERE email = ?', [email]);
+      const realAdminId = adminRows[0].id;
+      await query(
+        `INSERT IGNORE INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin')`,
+        [uuid(), realAdminId]
+      );
+      await query(
+        `INSERT INTO profiles (id, user_id, full_name, email) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), email = VALUES(email)`,
+        [uuid(), realAdminId, adminName, email]
+      );
+      await query(
+        `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', false, ?)
+         ON DUPLICATE KEY UPDATE setup_complete = false`,
+        [dbType]
+      );
+    }
+
+    // Mark that admin was created via wizard (so seedDefaultAdmin skips)
+    await setLicenseSetting('wizard_admin_created', 'true');
+
+    sendJson(res, 200, { success: true, message: 'Admin account created successfully.' });
+  } catch (err) {
+    sendJson(res, 500, { success: false, message: err.message });
   }
 };
 
@@ -756,7 +845,7 @@ routes['GET /api/license/status'] = async (req, res) => {
   });
 };
 
-// API: Setup license (initial activation)
+// API: Setup license (initial activation) — marks setup_complete = true
 routes['POST /api/license/setup'] = async (req, res) => {
   const { license_key } = await parseBody(req);
   if (!license_key || license_key.trim().length === 0) {
@@ -770,6 +859,22 @@ routes['POST /api/license/setup'] = async (req, res) => {
 
     if (isActive) {
       await setLicenseSetting('app_license_key', license_key.trim());
+
+      // Mark setup as fully complete now that license is activated
+      if (dbType === 'postgresql') {
+        await query(
+          `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', true, $1)
+           ON CONFLICT (id) DO UPDATE SET setup_complete = true`,
+          [dbType]
+        );
+      } else {
+        await query(
+          `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', true, ?)
+           ON DUPLICATE KEY UPDATE setup_complete = true`,
+          [dbType]
+        );
+      }
+
       sendJson(res, 200, { success: true, message: 'License activated successfully!', status: result.status });
     } else {
       sendJson(res, 200, { success: false, message: result.message, status: result.status });
@@ -787,8 +892,10 @@ const LICENSE_EXEMPT_ROUTES = [
   'POST /api/setup/test-connection',
   'GET /api/setup/status',
   'POST /api/setup/initialize',
+  'POST /api/setup/admin',
   'POST /api/auth/login',
   'POST /api/auth/logout',
+  'POST /api/auth/register',
 ];
 
 async function checkLicenseMiddleware(req) {
@@ -804,6 +911,25 @@ async function checkLicenseMiddleware(req) {
   return allowedStatuses.includes(licenseCache.status);
 }
 
+// --- Setup Enforcement Middleware ---
+async function checkSetupMiddleware(req) {
+  const routeKey = `${req.method} ${req.url.split('?')[0]}`;
+  // Always allow setup, license, and auth routes
+  const setupExempt = [
+    'GET /api/setup/status', 'POST /api/setup/admin', 'POST /api/setup/initialize', 'POST /api/setup/test-connection',
+    'POST /api/license/verify', 'POST /api/license/setup', 'GET /api/license/status',
+    'POST /api/auth/login', 'POST /api/auth/logout', 'POST /api/auth/register', 'GET /api/auth/session',
+  ];
+  if (setupExempt.includes(routeKey)) return true;
+
+  // Check if setup is complete
+  try {
+    const rows = await query('SELECT setup_complete FROM app_settings LIMIT 1');
+    if (rows.length > 0 && rows[0].setup_complete) return true;
+  } catch {}
+  return false;
+}
+
 // --- HTTP Server ---
 const server = http.createServer(async (req, res) => {
   // Handle CORS preflight
@@ -814,6 +940,16 @@ const server = http.createServer(async (req, res) => {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     });
     res.end();
+    return;
+  }
+
+  // Setup enforcement — block everything until setup is complete
+  const setupOk = await checkSetupMiddleware(req);
+  if (!setupOk) {
+    sendJson(res, 403, {
+      message: 'Setup not complete. Please complete the setup wizard first.',
+      needs_setup: true,
+    });
     return;
   }
 
@@ -844,12 +980,38 @@ const server = http.createServer(async (req, res) => {
 
 // --- Seed Default Admin ---
 async function seedDefaultAdmin() {
-  const adminEmail = 'admin@lifeos.local';
-  const adminPassword = 'LifeOS@2024!';
-  const passwordHash = hashPassword(adminPassword);
-
   try {
-    // Upsert admin user - always update password hash to ensure it's valid
+    // Skip seeding if admin was already created through the setup wizard
+    const wizardCreated = await getLicenseSetting('wizard_admin_created');
+    if (wizardCreated === 'true') {
+      console.log('✅ Admin already configured via setup wizard — skipping default seed.');
+      return;
+    }
+
+    // Also skip if running in Docker mode and no ADMIN_EMAIL env var (let wizard handle it)
+    if (process.env.DB_HOST && !process.env.ADMIN_EMAIL) {
+      // Check if any admin exists
+      const existingAdmins = await query("SELECT COUNT(*) as cnt FROM user_roles WHERE role = 'admin'");
+      if (parseInt(existingAdmins[0].cnt) === 0) {
+        // No admin exists, and no env vars — setup wizard will handle it
+        console.log('⏳ No admin configured. Setup wizard will prompt for admin credentials.');
+        // Don't mark setup_complete — let the wizard do it
+        await query(
+          dbType === 'postgresql'
+            ? `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', false, $1) ON CONFLICT (id) DO NOTHING`
+            : `INSERT INTO app_settings (id, setup_complete, db_type) VALUES ('default', false, ?) ON DUPLICATE KEY UPDATE id = id`,
+          [dbType]
+        );
+        return;
+      }
+    }
+
+    // Use env vars for headless setup if provided
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@lifeos.local';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'LifeOS@2024!';
+    const passwordHash = hashPassword(adminPassword);
+
+    // Upsert admin user
     const adminId = uuid();
     if (dbType === 'postgresql') {
       await query(
@@ -904,7 +1066,7 @@ async function seedDefaultAdmin() {
       );
     }
 
-    console.log('✅ Default admin user seeded: admin@lifeos.local / LifeOS@2024!');
+    console.log(`✅ Admin user seeded: ${adminEmail}`);
   } catch (err) {
     console.error('❌ Error seeding admin:', err.message);
     throw err; // Re-throw so retry logic can catch it
