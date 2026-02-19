@@ -27,6 +27,7 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminBackup from "./pages/admin/AdminBackup";
 import AdminLicenseEndpoint from "./pages/admin/AdminLicenseEndpoint";
 import AdminReconciliation from "./pages/admin/AdminReconciliation";
+import AdminWebsiteSettings from "./pages/admin/AdminWebsiteSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/admin/backup" element={<ProtectedRoute adminOnly><AdminBackup /></ProtectedRoute>} />
               <Route path="/admin/license-endpoint" element={<ProtectedRoute adminOnly><AdminLicenseEndpoint /></ProtectedRoute>} />
               <Route path="/admin/reconciliation" element={<ProtectedRoute adminOnly><AdminReconciliation /></ProtectedRoute>} />
+              <Route path="/admin/website-settings" element={<ProtectedRoute adminOnly><AdminWebsiteSettings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </CartProvider>
