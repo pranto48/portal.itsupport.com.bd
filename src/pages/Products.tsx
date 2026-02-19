@@ -8,6 +8,19 @@ import {
   Users, Database, Monitor, Ticket, FolderKanban, Settings, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Quote } from 'lucide-react';
+
+const ampnmTestimonials = [
+  { name: 'Rafiq Hasan', role: 'IT Manager, Garments Ltd.', text: 'AMPNM transformed how we monitor our factory network. We now catch outages before they affect production.' },
+  { name: 'Sharmin Akter', role: 'Network Engineer, ISP Co.', text: 'The real-time topology map is a game-changer. Multi-site monitoring from one dashboard saves us hours every week.' },
+  { name: 'Tanvir Ahmed', role: 'Sysadmin, EduTech BD', text: 'Easy Docker setup and automatic SNMP discovery made deployment effortless across our 3 campus locations.' },
+];
+
+const lifeosTestimonials = [
+  { name: 'Arif Mahmud', role: 'IT Professional', text: 'LifeOS replaced 5 different apps for me — tasks, notes, budgets, and device tracking all in one beautiful interface.' },
+  { name: 'Nusrat Jahan', role: 'Project Manager', text: 'The calendar sync with Google and the goal-tracking milestones keep my entire team aligned. Best productivity tool we\'ve used.' },
+  { name: 'Kamal Uddin', role: 'Small Business Owner', text: 'Self-hosted on my own server with Docker. Full control of my data, and the backup & restore feature gives me peace of mind.' },
+];
 
 import lifeosCalendar from '@/assets/lifeos-calendar.png';
 import lifeosDashboard from '@/assets/lifeos-dashboard.png';
@@ -158,6 +171,20 @@ const Products = () => {
         ) : (
           <p className="text-center text-gray-400">No AMPNM plans available yet.</p>
         )}
+
+        {/* AMPNM Testimonials */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+          {ampnmTestimonials.map(t => (
+            <div key={t.name} className="glass-card !p-5 space-y-3 hover:translate-y-[-4px]">
+              <Quote className="w-5 h-5 text-blue-400/60" />
+              <p className="text-gray-200 text-sm italic leading-relaxed">"{t.text}"</p>
+              <div className="pt-2 border-t border-gray-700">
+                <p className="text-white text-sm font-semibold">{t.name}</p>
+                <p className="text-blue-300 text-xs">{t.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ═══════════════════ LifeOS Section ═══════════════════ */}
@@ -233,6 +260,20 @@ const Products = () => {
         ) : (
           <p className="text-center text-gray-400">No LifeOS plans available yet.</p>
         )}
+
+        {/* LifeOS Testimonials */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+          {lifeosTestimonials.map(t => (
+            <div key={t.name} className="glass-card !p-5 space-y-3 hover:translate-y-[-4px]">
+              <Quote className="w-5 h-5 text-emerald-400/60" />
+              <p className="text-gray-200 text-sm italic leading-relaxed">"{t.text}"</p>
+              <div className="pt-2 border-t border-gray-700">
+                <p className="text-white text-sm font-semibold">{t.name}</p>
+                <p className="text-emerald-300 text-xs">{t.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Other products */}
