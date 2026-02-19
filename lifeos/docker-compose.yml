@@ -1,0 +1,71 @@
+services:
+  lifeos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lifeos-app
+    ports:
+      - "3377:80"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - lifeos-network
+
+  backend:
+    build:
+      context: ./docker/backend
+      dockerfile: Dockerfile
+    container_name: lifeos-backend
+    environment:
+      - API_PORT=3001
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=lifeos
+      - DB_USER=lifeos
+      - DB_PASSWORD=lifeos_secret_password
+      - JWT_SECRET=lifeos-change-this-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lifeos-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lifeos-db
+    environment:
+      POSTGRES_USER: lifeos
+      POSTGRES_PASSWORD: lifeos_secret_password
+      POSTGRES_DB: lifeos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifeos -d lifeos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lifeos-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  lifeos-network:
+    driver: bridge
