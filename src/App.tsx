@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,30 +8,44 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import PortalNavbar from "@/components/PortalNavbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import AdminLogin from "./pages/AdminLogin";
-import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
-import Cart from "./pages/Cart";
-import Payment from "./pages/Payment";
-import Profile from "./pages/Profile";
-import ChangePassword from "./pages/ChangePassword";
-import Support from "./pages/Support";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminLicenses from "./pages/admin/AdminLicenses";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminTickets from "./pages/admin/AdminTickets";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminBackup from "./pages/admin/AdminBackup";
-import AdminLicenseEndpoint from "./pages/admin/AdminLicenseEndpoint";
-import AdminReconciliation from "./pages/admin/AdminReconciliation";
-import AdminWebsiteSettings from "./pages/admin/AdminWebsiteSettings";
-import NotFound from "./pages/NotFound";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy load all pages
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Products = lazy(() => import("./pages/Products"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Payment = lazy(() => import("./pages/Payment"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const Support = lazy(() => import("./pages/Support"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminLicenses = lazy(() => import("./pages/admin/AdminLicenses"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminTickets = lazy(() => import("./pages/admin/AdminTickets"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminBackup = lazy(() => import("./pages/admin/AdminBackup"));
+const AdminLicenseEndpoint = lazy(() => import("./pages/admin/AdminLicenseEndpoint"));
+const AdminReconciliation = lazy(() => import("./pages/admin/AdminReconciliation"));
+const AdminWebsiteSettings = lazy(() => import("./pages/admin/AdminWebsiteSettings"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const PageLoader = () => (
+  <div className="flex min-h-screen items-center justify-center">
+    <div className="space-y-4 w-full max-w-md p-8">
+      <Skeleton className="h-8 w-3/4" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -41,6 +56,7 @@ const App = () => (
         <AuthProvider>
           <CartProvider>
             <PortalNavbar />
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
@@ -65,6 +81,7 @@ const App = () => (
               <Route path="/admin/website-settings" element={<ProtectedRoute adminOnly><AdminWebsiteSettings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </CartProvider>
         </AuthProvider>
       </BrowserRouter>
