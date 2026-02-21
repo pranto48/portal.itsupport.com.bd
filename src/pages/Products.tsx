@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useCart } from '@/contexts/CartContext';
@@ -107,6 +107,26 @@ const Products = () => {
     }, 5000);
     return () => clearInterval(timer);
   }, []);
+
+  // Preload next carousel slides
+  useEffect(() => {
+    const nextLifeos = lifeosScreenshots[(currentSlide + 1) % lifeosScreenshots.length];
+    const nextAmpnm = ampnmScreenshots[(ampnmSlide + 1) % ampnmScreenshots.length];
+    const link1 = document.createElement('link');
+    link1.rel = 'preload';
+    link1.as = 'image';
+    link1.href = nextLifeos.src;
+    const link2 = document.createElement('link');
+    link2.rel = 'preload';
+    link2.as = 'image';
+    link2.href = nextAmpnm.src;
+    document.head.appendChild(link1);
+    document.head.appendChild(link2);
+    return () => {
+      document.head.removeChild(link1);
+      document.head.removeChild(link2);
+    };
+  }, [currentSlide, ampnmSlide]);
 
   const ampnmProducts = products.filter(p => p.category === 'AMPNM');
   const lifeosProducts = products.filter(p => p.category === 'LifeOS');

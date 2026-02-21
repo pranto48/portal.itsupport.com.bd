@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Shield, Zap, Smartphone, Headphones, Download, LifeBuoy, Network,
   Monitor, Cloud, Database, BarChart3, Calendar, CheckSquare, FileText,
@@ -57,6 +57,17 @@ const Index = () => {
     }, 5000);
     return () => clearInterval(timer);
   }, []);
+
+  // Preload next carousel slide
+  useEffect(() => {
+    const nextSlide = lifeosScreenshots[(currentSlide + 1) % lifeosScreenshots.length];
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = nextSlide.src;
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, [currentSlide]);
 
   return (
     <div className="page-content">
