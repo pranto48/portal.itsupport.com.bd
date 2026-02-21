@@ -181,6 +181,7 @@ const Products = () => {
               src={ampnmScreenshots[ampnmSlide].src}
               alt={ampnmScreenshots[ampnmSlide].label}
               className="w-full h-full object-cover object-top transition-opacity duration-500"
+              loading="lazy"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
               <p className="text-white font-medium text-center">{ampnmScreenshots[ampnmSlide].label}</p>
@@ -262,6 +263,7 @@ const Products = () => {
               src={lifeosScreenshots[currentSlide].src}
               alt={lifeosScreenshots[currentSlide].label}
               className="w-full h-full object-cover object-top transition-opacity duration-500"
+              loading="lazy"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
               <p className="text-white font-medium text-center">{lifeosScreenshots[currentSlide].label}</p>

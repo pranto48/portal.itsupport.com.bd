@@ -53,7 +53,7 @@ const Profile = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center space-x-4 mb-6">
             <img src={avatarUrl || `https://www.gravatar.com/avatar/${user?.email ? btoa(user.email) : ''}?d=identicon`}
-              alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-blue-400" />
+              alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-blue-400" loading="lazy" />
             <div className="flex-1">
               <label className="block text-gray-200 text-sm font-bold mb-2">Avatar URL (Optional):</label>
               <input type="url" className="form-glass-input" placeholder="https://example.com/avatar.jpg"
