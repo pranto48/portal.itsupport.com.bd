@@ -3,12 +3,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import PortalNavbar from "@/components/PortalNavbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedRoute } from "@/components/AnimatedRoute";
+import { AnimatePresence } from "framer-motion";
 
 // Lazy load all pages
 const Index = lazy(() => import("./pages/Index"));
@@ -47,6 +49,42 @@ const PageLoader = () => (
   </div>
 );
 
+const A = ({ children }: { children: React.ReactNode }) => <AnimatedRoute>{children}</AnimatedRoute>;
+
+const AppRoutes = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Suspense fallback={<PageLoader />}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<A><Index /></A>} />
+          <Route path="/login" element={<A><Login /></A>} />
+          <Route path="/register" element={<A><Register /></A>} />
+          <Route path="/admin-login" element={<A><AdminLogin /></A>} />
+          <Route path="/dashboard" element={<ProtectedRoute><A><Dashboard /></A></ProtectedRoute>} />
+          <Route path="/products" element={<A><Products /></A>} />
+          <Route path="/cart" element={<A><Cart /></A>} />
+          <Route path="/payment" element={<ProtectedRoute><A><Payment /></A></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><A><Profile /></A></ProtectedRoute>} />
+          <Route path="/change-password" element={<ProtectedRoute><A><ChangePassword /></A></ProtectedRoute>} />
+          <Route path="/support" element={<ProtectedRoute><A><Support /></A></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute adminOnly><A><AdminDashboard /></A></ProtectedRoute>} />
+          <Route path="/admin/licenses" element={<ProtectedRoute adminOnly><A><AdminLicenses /></A></ProtectedRoute>} />
+          <Route path="/admin/products" element={<ProtectedRoute adminOnly><A><AdminProducts /></A></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute adminOnly><A><AdminUsers /></A></ProtectedRoute>} />
+          <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><A><AdminTickets /></A></ProtectedRoute>} />
+          <Route path="/admin/orders" element={<ProtectedRoute adminOnly><A><AdminOrders /></A></ProtectedRoute>} />
+          <Route path="/admin/backup" element={<ProtectedRoute adminOnly><A><AdminBackup /></A></ProtectedRoute>} />
+          <Route path="/admin/license-endpoint" element={<ProtectedRoute adminOnly><A><AdminLicenseEndpoint /></A></ProtectedRoute>} />
+          <Route path="/admin/reconciliation" element={<ProtectedRoute adminOnly><A><AdminReconciliation /></A></ProtectedRoute>} />
+          <Route path="/admin/website-settings" element={<ProtectedRoute adminOnly><A><AdminWebsiteSettings /></A></ProtectedRoute>} />
+          <Route path="*" element={<A><NotFound /></A>} />
+        </Routes>
+      </Suspense>
+    </AnimatePresence>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -56,32 +94,7 @@ const App = () => (
         <AuthProvider>
           <CartProvider>
             <PortalNavbar />
-            <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/admin-login" element={<AdminLogin />} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
-              <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/admin/licenses" element={<ProtectedRoute adminOnly><AdminLicenses /></ProtectedRoute>} />
-              <Route path="/admin/products" element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
-              <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-              <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><AdminTickets /></ProtectedRoute>} />
-              <Route path="/admin/orders" element={<ProtectedRoute adminOnly><AdminOrders /></ProtectedRoute>} />
-              <Route path="/admin/backup" element={<ProtectedRoute adminOnly><AdminBackup /></ProtectedRoute>} />
-              <Route path="/admin/license-endpoint" element={<ProtectedRoute adminOnly><AdminLicenseEndpoint /></ProtectedRoute>} />
-              <Route path="/admin/reconciliation" element={<ProtectedRoute adminOnly><AdminReconciliation /></ProtectedRoute>} />
-              <Route path="/admin/website-settings" element={<ProtectedRoute adminOnly><AdminWebsiteSettings /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            </Suspense>
+            <AppRoutes />
           </CartProvider>
         </AuthProvider>
       </BrowserRouter>
