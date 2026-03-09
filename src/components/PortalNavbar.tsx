@@ -129,7 +129,7 @@ const PortalNavbar = () => {
         <div className="md:hidden px-4 pb-4 space-y-2">
           {links.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white ${isActive(to) ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white ${isActive(to) ? 'bg-primary/10 dark:bg-white/10' : 'hover:bg-primary/5 dark:hover:bg-white/5'}`}>
               <Icon className="w-4 h-4" />{label}
             </Link>
           ))}
