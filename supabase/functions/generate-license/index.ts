@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify admin role
+    // Verify admin role OR auto_fulfill for free orders
     const adminClient = createClient(supabaseUrl, serviceKey);
     const { data: roleData } = await adminClient
       .from("user_roles")
@@ -68,7 +68,12 @@ Deno.serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
-    if (!roleData) {
+    const body = await req.json();
+    const { order_id, auto_fulfill } = body;
+    const isAdmin = !!roleData;
+
+    // Non-admins can only auto-fulfill their own free orders
+    if (!isAdmin && !auto_fulfill) {
       return new Response(
         JSON.stringify({ error: "Admin access required" }),
         {
@@ -77,9 +82,6 @@ Deno.serve(async (req) => {
         }
       );
     }
-
-    const body = await req.json();
-    const { order_id } = body;
 
     if (!order_id || typeof order_id !== "string") {
       return new Response(
