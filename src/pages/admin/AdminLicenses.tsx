@@ -72,11 +72,14 @@ const AdminLicenses = () => {
 
   const categories = [...new Set(products.map((p: any) => p.category).filter(Boolean))];
 
+  const statuses = [...new Set(licenses.map(l => l.status).filter(Boolean))];
+
   const filtered = licenses.filter(l => {
     const matchSearch = l.license_key.toLowerCase().includes(search.toLowerCase()) ||
       (l.customer_email || '').toLowerCase().includes(search.toLowerCase());
     const matchCategory = filterCategory === 'all' || (l.products as any)?.category === filterCategory;
-    return matchSearch && matchCategory;
+    const matchStatus = filterStatus === 'all' || l.status === filterStatus;
+    return matchSearch && matchCategory && matchStatus;
   });
 
   return (
