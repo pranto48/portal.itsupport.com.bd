@@ -44,6 +44,8 @@ const AdminLicenseEndpoint = lazy(() => import("./pages/admin/AdminLicenseEndpoi
 const AdminReconciliation = lazy(() => import("./pages/admin/AdminReconciliation"));
 const AdminWebsiteSettings = lazy(() => import("./pages/admin/AdminWebsiteSettings"));
 const AdminAlerts = lazy(() => import("./pages/admin/AdminAlerts"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
