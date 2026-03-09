@@ -43,6 +43,7 @@ const AdminBackup = lazy(() => import("./pages/admin/AdminBackup"));
 const AdminLicenseEndpoint = lazy(() => import("./pages/admin/AdminLicenseEndpoint"));
 const AdminReconciliation = lazy(() => import("./pages/admin/AdminReconciliation"));
 const AdminWebsiteSettings = lazy(() => import("./pages/admin/AdminWebsiteSettings"));
+const AdminAlerts = lazy(() => import("./pages/admin/AdminAlerts"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
