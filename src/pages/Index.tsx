@@ -10,6 +10,7 @@ import {
   Github, Facebook, Twitter, Mail, MapPin, Phone
 } from "lucide-react";
 
+import logoImg from '@/assets/logo-itsupportbd.png';
 import lifeosDashboard from '@/assets/lifeos-dashboard.png';
 import lifeosCalendar from '@/assets/lifeos-calendar.png';
 import lifeosTasks from '@/assets/lifeos-tasks.png';
@@ -19,6 +20,11 @@ import lifeosGoals from '@/assets/lifeos-goals.png';
 import lifeosProjects from '@/assets/lifeos-projects.png';
 import lifeosTickets from '@/assets/lifeos-tickets.png';
 import lifeosSettings from '@/assets/lifeos-settings.png';
+import ampnmDashboard from '@/assets/ampnm-dashboard.png';
+import ampnmDevices from '@/assets/ampnm-devices.png';
+import ampnmMap from '@/assets/ampnm-map.png';
+import ampnmPingHistory from '@/assets/ampnm-ping-history.png';
+import ampnmDocs from '@/assets/ampnm-docs.png';
 
 const lifeosScreenshots = [
   { src: lifeosDashboard, label: 'Customizable Dashboard' },
