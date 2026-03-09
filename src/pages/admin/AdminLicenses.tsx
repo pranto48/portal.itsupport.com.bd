@@ -287,9 +287,15 @@ const AdminLicenses = () => {
               <Leaf className="w-3 h-3 inline mr-1" />LifeOS ({stats.lifeos})
             </button>
           </div>
-          <button onClick={fetchAll} className="text-gray-400 hover:text-blue-400 text-sm flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> Refresh
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleBulkRevalidate} disabled={bulkValidating} className="btn-admin-primary text-sm flex items-center gap-1">
+              <Shield className={`w-3 h-3 ${bulkValidating ? 'animate-pulse' : ''}`} />
+              {bulkValidating ? `Validating ${bulkProgress.done}/${bulkProgress.total}...` : 'Refresh Licenses'}
+            </button>
+            <button onClick={fetchAll} className="text-gray-400 hover:text-blue-400 text-sm flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Search + Status Filter */}
