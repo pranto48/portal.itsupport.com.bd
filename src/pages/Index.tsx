@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
+import { CookieConsent } from "@/components/CookieConsent";
 import {
   Shield, Zap, Smartphone, Headphones, Download, Network,
   Monitor, Cloud, Database, BarChart3, Calendar, CheckSquare, FileText,
@@ -549,6 +550,7 @@ const Index = () => {
           </div>
         </div>
       </footer>
+      <CookieConsent />
     </div>
   );
 };
