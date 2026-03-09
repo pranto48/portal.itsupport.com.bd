@@ -137,10 +137,12 @@ const CountUp = ({ target, suffix = '' }: { target: string; suffix?: string }) =
 const Index = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const [ampnmSlide, setAmpnmSlide] = useState(0);
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % lifeosScreenshots.length);
-    }, 5000);
+      setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length);
+    }, 6000);
     return () => clearInterval(timer);
   }, []);
 
