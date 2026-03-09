@@ -109,6 +109,7 @@ const PortalNavbar = () => {
 
           {/* Mobile hamburger */}
           <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
             <Link to="/cart" className="relative text-gray-300 hover:text-white p-2">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
