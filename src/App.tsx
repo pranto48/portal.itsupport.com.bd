@@ -44,6 +44,8 @@ const AdminLicenseEndpoint = lazy(() => import("./pages/admin/AdminLicenseEndpoi
 const AdminReconciliation = lazy(() => import("./pages/admin/AdminReconciliation"));
 const AdminWebsiteSettings = lazy(() => import("./pages/admin/AdminWebsiteSettings"));
 const AdminAlerts = lazy(() => import("./pages/admin/AdminAlerts"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -91,6 +93,8 @@ const AppRoutes = () => {
           <Route path="/admin/reconciliation" element={<ProtectedRoute adminOnly><A><AdminReconciliation /></A></ProtectedRoute>} />
           <Route path="/admin/website-settings" element={<ProtectedRoute adminOnly><A><AdminWebsiteSettings /></A></ProtectedRoute>} />
           <Route path="/admin/alerts" element={<ProtectedRoute adminOnly><A><AdminAlerts /></A></ProtectedRoute>} />
+          <Route path="/privacy" element={<A><PrivacyPolicy /></A>} />
+          <Route path="/terms" element={<A><TermsOfService /></A>} />
           <Route path="*" element={<A><NotFound /></A>} />
         </Routes>
       </Suspense>
