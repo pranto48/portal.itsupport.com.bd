@@ -467,6 +467,88 @@ const Index = () => {
         </AnimatedSection>
 
       </div>
+
+      {/* ═══════════ FOOTER ═══════════ */}
+      <footer className="border-t border-border bg-secondary/30 backdrop-blur-sm mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+            {/* Brand */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Shield className="w-6 h-6 text-primary" />
+                <span className="font-bold text-lg text-foreground">IT Support BD</span>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Real-time network monitoring &amp; comprehensive life management tools. Licensed, secure, and ready to deploy.
+              </p>
+              <div className="flex items-center gap-3">
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors">
+                  <Facebook className="w-4 h-4" />
+                </a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors">
+                  <Twitter className="w-4 h-4" />
+                </a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors">
+                  <Github className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Products */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-foreground">Products</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">AMPNM</Link></li>
+                <li><Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">LifeOS</Link></li>
+                <li><Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">Pricing &amp; Plans</Link></li>
+                <li><Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">License Tiers</Link></li>
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-foreground">Support</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/login" className="text-muted-foreground hover:text-primary transition-colors">Customer Portal</Link></li>
+                <li><Link to="/register" className="text-muted-foreground hover:text-primary transition-colors">Create Account</Link></li>
+                <li><a href="mailto:support@itsupport.com.bd" className="text-muted-foreground hover:text-primary transition-colors">Email Support</a></li>
+                <li><Link to="/login" className="text-muted-foreground hover:text-primary transition-colors">Submit a Ticket</Link></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-foreground">Contact</h4>
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="w-4 h-4 text-primary shrink-0" />
+                  <span>support@itsupport.com.bd</span>
+                </li>
+                <li className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="w-4 h-4 text-primary shrink-0" />
+                  <span>+880 1XXX-XXXXXX</span>
+                </li>
+                <li className="flex items-start gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <span>Dhaka, Bangladesh</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-muted-foreground text-xs">
+              &copy; {new Date().getFullYear()} IT Support BD. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-xs">
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
+              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Refund Policy</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
