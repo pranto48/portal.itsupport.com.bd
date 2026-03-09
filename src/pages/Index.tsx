@@ -550,6 +550,7 @@ const Index = () => {
           </div>
         </div>
       </footer>
+      <CookieConsent />
     </div>
   );
 };
