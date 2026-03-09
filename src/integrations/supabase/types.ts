@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_dismissed: boolean
+          is_read: boolean
+          license_id: string | null
+          message: string
+          product_category: string | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          license_id?: string | null
+          message: string
+          product_category?: string | null
+          severity?: string
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          license_id?: string | null
+          message?: string
+          product_category?: string | null
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_alerts_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           description: string | null
