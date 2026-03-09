@@ -121,18 +121,20 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <LanguageProvider>
-          <DashboardModeProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <PWAInstallPrompt />
-              <BrowserRouter>
-                <AppContent />
-              </BrowserRouter>
-            </TooltipProvider>
-          </DashboardModeProvider>
-        </LanguageProvider>
+        <LicenseGateProvider>
+          <LanguageProvider>
+            <DashboardModeProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <PWAInstallPrompt />
+                <BrowserRouter>
+                  <AppContent />
+                </BrowserRouter>
+              </TooltipProvider>
+            </DashboardModeProvider>
+          </LanguageProvider>
+        </LicenseGateProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>
