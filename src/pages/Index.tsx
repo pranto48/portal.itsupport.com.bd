@@ -159,7 +159,7 @@ const Index = () => {
               </motion.div>
 
               <motion.h1
-                className="hero-title text-5xl md:text-7xl font-extrabold text-white mt-6 mb-4"
+                className="hero-title text-5xl md:text-7xl font-extrabold text-foreground mt-6 mb-4"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.15 }}
@@ -174,7 +174,7 @@ const Index = () => {
               </motion.h1>
 
               <motion.p
-                className="hero-subtitle text-lg md:text-xl text-gray-300 mb-10 leading-relaxed max-w-3xl mx-auto"
+                className="hero-subtitle text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed max-w-3xl mx-auto"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
@@ -203,7 +203,6 @@ const Index = () => {
             </div>
             <div className="floating-orb one" />
             <div className="floating-orb two" />
-            {/* Extra decorative orb */}
             <div className="absolute w-32 h-32 rounded-full bg-purple-500/20 blur-3xl top-1/2 left-1/4 animate-pulse" />
           </div>
         </div>
@@ -221,7 +220,7 @@ const Index = () => {
                 <p className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
                   <CountUp target={s.value} />
                 </p>
-                <p className="text-sm text-gray-400 mt-1 font-medium">{s.label}</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">{s.label}</p>
               </motion.div>
             ))}
           </div>
@@ -230,21 +229,21 @@ const Index = () => {
         {/* ═══════════ AMPNM SECTION ═══════════ */}
         <section>
           <AnimatedSection className="flex flex-col items-center mb-10 space-y-3">
-            <div className="inline-flex items-center gap-2 bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded-full px-6 py-2.5 text-sm font-semibold">
+            <div className="inline-flex items-center gap-2 bg-blue-500/15 text-blue-400 dark:text-blue-300 border border-blue-500/30 rounded-full px-6 py-2.5 text-sm font-semibold">
               <Network className="w-5 h-5" /> AMPNM — Advanced Network Monitoring
             </div>
-            <p className="text-gray-400 text-center max-w-2xl">Docker-powered network intelligence for modern infrastructure teams</p>
+            <p className="text-muted-foreground text-center max-w-2xl">Docker-powered network intelligence for modern infrastructure teams</p>
           </AnimatedSection>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <AnimatedSection>
               <div className="glass-card p-8 tilt-card h-full">
                 <div className="tilt-inner space-y-5">
-                  <h3 className="section-heading text-white">Docker-Based Network Monitoring</h3>
-                  <p className="text-gray-300 leading-relaxed">
+                  <h3 className="section-heading text-foreground">Docker-Based Network Monitoring</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     Deploy AMPNM in Docker containers for real-time network topology visualization, multi-site monitoring, SNMP auto-discovery, and instant failure alerts — all managed from this portal.
                   </p>
-                  <ul className="text-gray-300 space-y-3">
+                  <ul className="text-muted-foreground space-y-3">
                     {[
                       'Visual topology maps with live device status',
                       'Real-time ping, SNMP, and port monitoring',
@@ -275,20 +274,20 @@ const Index = () => {
                       className="text-center space-y-2 p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 hover:border-blue-500/25 transition-all duration-300"
                     >
                       <h.icon className="w-7 h-7 text-blue-400 mx-auto" />
-                      <p className="text-white text-sm font-medium">{h.label}</p>
+                      <p className="text-foreground text-sm font-medium">{h.label}</p>
                     </motion.div>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div className="glass-card p-5 text-center hover:border-blue-500/40">
-                    <p className="text-xs uppercase text-blue-300 tracking-wider font-semibold">Status</p>
-                    <p className="text-3xl font-bold text-white mt-1">Real-time</p>
-                    <p className="text-sm text-gray-400 mt-1">Live node sync</p>
+                    <p className="text-xs uppercase text-blue-400 dark:text-blue-300 tracking-wider font-semibold">Status</p>
+                    <p className="text-3xl font-bold text-foreground mt-1">Real-time</p>
+                    <p className="text-sm text-muted-foreground mt-1">Live node sync</p>
                   </div>
                   <div className="glass-card p-5 text-center hover:border-blue-500/40">
-                    <p className="text-xs uppercase text-blue-300 tracking-wider font-semibold">Coverage</p>
-                    <p className="text-3xl font-bold text-white mt-1">10+ tiers</p>
-                    <p className="text-sm text-gray-400 mt-1">Flexible licensing</p>
+                    <p className="text-xs uppercase text-blue-400 dark:text-blue-300 tracking-wider font-semibold">Coverage</p>
+                    <p className="text-3xl font-bold text-foreground mt-1">10+ tiers</p>
+                    <p className="text-sm text-muted-foreground mt-1">Flexible licensing</p>
                   </div>
                 </div>
               </div>
@@ -299,10 +298,10 @@ const Index = () => {
         {/* ═══════════ LIFEOS SECTION ═══════════ */}
         <section>
           <AnimatedSection className="flex flex-col items-center mb-10 space-y-3">
-            <div className="inline-flex items-center gap-2 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full px-6 py-2.5 text-sm font-semibold">
+            <div className="inline-flex items-center gap-2 bg-emerald-500/15 text-emerald-500 dark:text-emerald-300 border border-emerald-500/30 rounded-full px-6 py-2.5 text-sm font-semibold">
               <Zap className="w-5 h-5" /> LifeOS — Personal Life Management
             </div>
-            <p className="text-gray-400 text-center max-w-2xl">Everything you need to manage your personal and professional life in one place</p>
+            <p className="text-muted-foreground text-center max-w-2xl">Everything you need to manage your personal and professional life in one place</p>
           </AnimatedSection>
 
           {/* Screenshot Carousel */}
@@ -331,12 +330,12 @@ const Index = () => {
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex justify-center gap-2 py-3 bg-gray-900/60">
+              <div className="flex justify-center gap-2 py-3 bg-secondary/60">
                 {lifeosScreenshots.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentSlide(i)}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-emerald-400 w-6' : 'bg-gray-500 hover:bg-gray-400'}`}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-emerald-400 w-6' : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'}`}
                   />
                 ))}
               </div>
@@ -347,8 +346,8 @@ const Index = () => {
             <AnimatedSection>
               <div className="glass-card p-8 tilt-card h-full">
                 <div className="tilt-inner space-y-5">
-                  <h3 className="section-heading text-white">All-in-One Life Management</h3>
-                  <p className="text-gray-300 leading-relaxed">
+                  <h3 className="section-heading text-foreground">All-in-One Life Management</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     A comprehensive personal and office management system built with React, TypeScript, and modern cloud infrastructure. Tasks, Calendar, Budget, Goals, Notes, Family Management, Device Inventory, Support Tickets, Projects — all in one system.
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -374,11 +373,11 @@ const Index = () => {
                       className="text-center space-y-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 hover:border-emerald-500/25 transition-all duration-300"
                     >
                       <h.icon className="w-6 h-6 text-emerald-400 mx-auto" />
-                      <p className="text-white text-xs font-medium">{h.label}</p>
+                      <p className="text-foreground text-xs font-medium">{h.label}</p>
                     </motion.div>
                   ))}
                 </div>
-                <ul className="text-gray-300 space-y-3 mt-5 text-sm">
+                <ul className="text-muted-foreground space-y-3 mt-5 text-sm">
                   {[
                     'Self-hosted with Docker or deploy to cloud',
                     'Google & Outlook calendar sync',
@@ -400,8 +399,8 @@ const Index = () => {
         {/* ═══════════ TESTIMONIALS ═══════════ */}
         <section>
           <AnimatedSection className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Trusted by Teams & Individuals</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">See what our users are saying about AMPNM and LifeOS</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Trusted by Teams & Individuals</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">See what our users are saying about AMPNM and LifeOS</p>
           </AnimatedSection>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => (
@@ -412,10 +411,10 @@ const Index = () => {
                       <Star key={j} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                     ))}
                   </div>
-                  <p className="text-gray-300 italic flex-1 leading-relaxed">"{t.text}"</p>
-                  <div className="mt-4 pt-4 border-t border-gray-700/50">
-                    <p className="text-white font-semibold text-sm">{t.name}</p>
-                    <p className="text-gray-500 text-xs">{t.role}</p>
+                  <p className="text-muted-foreground italic flex-1 leading-relaxed">"{t.text}"</p>
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-foreground font-semibold text-sm">{t.name}</p>
+                    <p className="text-muted-foreground text-xs">{t.role}</p>
                   </div>
                 </motion.div>
               </AnimatedSection>
@@ -436,8 +435,8 @@ const Index = () => {
                   <div className="feature-icon mb-5 mx-auto w-fit">
                     <f.icon className={`w-8 h-8 ${f.color === 'blue' ? 'text-blue-300' : f.color === 'emerald' ? 'text-emerald-300' : 'text-purple-300'}`} />
                   </div>
-                  <h2 className="text-2xl font-semibold mb-3 text-white">{f.title}</h2>
-                  <p className="text-gray-400 leading-relaxed">{f.desc}</p>
+                  <h2 className="text-2xl font-semibold mb-3 text-foreground">{f.title}</h2>
+                  <p className="text-muted-foreground leading-relaxed">{f.desc}</p>
                 </div>
               </motion.div>
             </AnimatedSection>
@@ -449,8 +448,8 @@ const Index = () => {
           <div className="glass-card text-center py-16 px-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-emerald-500/5 to-blue-500/5" />
             <div className="relative z-10">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Get Started?</h2>
-              <p className="text-gray-400 max-w-xl mx-auto mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Ready to Get Started?</h2>
+              <p className="text-muted-foreground max-w-xl mx-auto mb-8">
                 Create your free account today and explore our full range of network monitoring and life management tools.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4 items-center">

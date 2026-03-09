@@ -53,7 +53,7 @@ const PortalNavbar = () => {
         <div className="flex items-center justify-between h-16">
           <Link to={user ? '/dashboard' : '/'} className="flex items-center gap-2">
             <Shield className="w-6 h-6 text-accent" />
-            <span className="text-lg font-bold text-white">IT Support BD</span>
+            <span className="text-lg font-bold text-foreground dark:text-white">IT Support BD</span>
           </Link>
 
           {/* Desktop nav links */}
@@ -79,7 +79,7 @@ const PortalNavbar = () => {
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
             {/* Cart icon (always visible) */}
-            <Link to="/cart" className="relative text-gray-300 hover:text-white transition-colors p-2">
+            <Link to="/cart" className="relative text-muted-foreground hover:text-foreground transition-colors p-2">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
@@ -110,7 +110,7 @@ const PortalNavbar = () => {
           {/* Mobile hamburger */}
           <div className="md:hidden flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/cart" className="relative text-gray-300 hover:text-white p-2">
+            <Link to="/cart" className="relative text-muted-foreground hover:text-foreground p-2">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
@@ -118,7 +118,7 @@ const PortalNavbar = () => {
                 </span>
               )}
             </Link>
-            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white">
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground dark:text-white">
               {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
@@ -129,7 +129,7 @@ const PortalNavbar = () => {
         <div className="md:hidden px-4 pb-4 space-y-2">
           {links.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white ${isActive(to) ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white ${isActive(to) ? 'bg-primary/10 dark:bg-white/10' : 'hover:bg-primary/5 dark:hover:bg-white/5'}`}>
               <Icon className="w-4 h-4" />{label}
             </Link>
           ))}
@@ -137,7 +137,7 @@ const PortalNavbar = () => {
             <>
               {!isAdminPage && isAdmin && (
                 <Link to="/admin" onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/5">
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white hover:bg-primary/5 dark:hover:bg-white/5">
                   <Lock className="w-4 h-4" />Admin Panel
                 </Link>
               )}
@@ -149,11 +149,11 @@ const PortalNavbar = () => {
           ) : (
             <>
               <Link to="/login" onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/5">
+                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white hover:bg-primary/5 dark:hover:bg-white/5">
                 <LogIn className="w-4 h-4" />Login
               </Link>
               <Link to="/register" onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/5">
+                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white hover:bg-primary/5 dark:hover:bg-white/5">
                 <UserPlus className="w-4 h-4" />Register
               </Link>
             </>
