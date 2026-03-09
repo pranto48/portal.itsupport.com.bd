@@ -46,6 +46,7 @@ const AdminWebsiteSettings = lazy(() => import("./pages/admin/AdminWebsiteSettin
 const AdminAlerts = lazy(() => import("./pages/admin/AdminAlerts"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
