@@ -149,7 +149,7 @@ const PortalNavbar = () => {
           ) : (
             <>
               <Link to="/login" onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/5">
+                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white hover:bg-primary/5 dark:hover:bg-white/5">
                 <LogIn className="w-4 h-4" />Login
               </Link>
               <Link to="/register" onClick={() => setMobileOpen(false)}
