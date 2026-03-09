@@ -459,3 +459,95 @@
   .hero-title { font-size: 1.875rem; }
   .accent-badge { font-size: 0.7rem; padding: 0.4rem 0.8rem; }
 }
+
+/* Light mode glass overrides */
+:root:not(.dark) .glass-navbar,
+:not(.dark) .glass-navbar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.72));
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .admin-navbar,
+:not(.dark) .admin-navbar {
+  background: linear-gradient(90deg, hsl(220 30% 15% / 0.95), hsl(220 25% 22% / 0.9));
+}
+
+:root:not(.dark) .glass-card,
+:not(.dark) .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.75));
+  border-color: hsl(var(--border));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .glass-card:hover,
+:not(.dark) .glass-card:hover {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+:root:not(.dark) .nav-link,
+:not(.dark) .nav-link {
+  color: hsl(220 30% 30%);
+}
+
+:root:not(.dark) .nav-link:hover,
+:not(.dark) .nav-link:hover {
+  color: hsl(var(--primary));
+}
+
+:root:not(.dark) .nav-link.active,
+:not(.dark) .nav-link.active {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.15);
+}
+
+:root:not(.dark) .form-glass-input,
+:not(.dark) .form-glass-input {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .accent-badge,
+:not(.dark) .accent-badge {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.25);
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .floating-orb,
+:not(.dark) .floating-orb {
+  opacity: 0.12;
+}
+
+:root:not(.dark) .animated-grid,
+:not(.dark) .animated-grid {
+  opacity: 0.08;
+}
+
+:root:not(.dark) .glass-chip,
+:not(.dark) .glass-chip {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+:root:not(.dark) .glow-pill,
+:not(.dark) .glow-pill {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .btn-glass-secondary,
+:not(.dark) .btn-glass-secondary {
+  color: hsl(var(--foreground));
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--border));
+}
+
+:root:not(.dark) .section-heading::after,
+:not(.dark) .section-heading::after {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.4), transparent);
+}
