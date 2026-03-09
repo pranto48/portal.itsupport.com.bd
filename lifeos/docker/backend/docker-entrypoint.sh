@@ -7,15 +7,55 @@ echo "║              Docker Version - Starting...                  ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check if license key is provided
+# --- Startup License Auto-Check ---
+PORTAL_CHECK_URL="${LICENSE_PORTAL_URL:-https://abcytwvuntyicdknpzju.supabase.co/functions/v1/startup-license-check}"
+INSTALL_ID_FILE="/app/data/.installation_id"
+
+# Get or generate installation ID
+if [ -f "$INSTALL_ID_FILE" ]; then
+    INSTALL_ID=$(cat "$INSTALL_ID_FILE")
+else
+    INSTALL_ID="LIFEOS-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen 2>/dev/null || date +%s%N)"
+    mkdir -p "$(dirname "$INSTALL_ID_FILE")"
+    echo "$INSTALL_ID" > "$INSTALL_ID_FILE"
+fi
+
 if [ -z "${APP_LICENSE_KEY:-}" ]; then
     echo "⚠️  WARNING: No license key provided!"
     echo "    Set APP_LICENSE_KEY in docker-compose.yml"
     echo "    Application will require license activation during setup."
     echo ""
 else
-    echo "✓ License key detected"
-    echo "  License will be validated on first access"
+    echo "→ Validating license on startup..."
+    LICENSE_RESPONSE=$(curl -s -m 15 -X POST "$PORTAL_CHECK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"${APP_LICENSE_KEY}\",\"installation_id\":\"${INSTALL_ID}\",\"product\":\"LifeOS\"}" \
+        2>/dev/null || echo '{"valid":false,"status":"offline","message":"Portal unreachable"}')
+
+    LICENSE_VALID=$(echo "$LICENSE_RESPONSE" | grep -o '"valid":\s*true' || true)
+    LICENSE_STATUS=$(echo "$LICENSE_RESPONSE" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+    LICENSE_MSG=$(echo "$LICENSE_RESPONSE" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+    LICENSE_WARNING=$(echo "$LICENSE_RESPONSE" | grep -o '"warning":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+
+    if [ -n "$LICENSE_VALID" ]; then
+        echo "✓ License validated: ${LICENSE_STATUS}"
+        if [ -n "$LICENSE_WARNING" ]; then
+            echo "  ⚠️  ${LICENSE_WARNING}"
+        fi
+        echo "$(date -Iseconds)" > /app/data/.last_license_check
+        echo "$LICENSE_STATUS" > /app/data/.license_status
+    else
+        echo "⚠️  License check: ${LICENSE_STATUS} - ${LICENSE_MSG}"
+        if [ -f "/app/data/.license_status" ]; then
+            CACHED_STATUS=$(cat /app/data/.license_status)
+            if [ "$CACHED_STATUS" = "active" ] || [ "$CACHED_STATUS" = "free" ]; then
+                echo "  → Using cached license status: ${CACHED_STATUS}"
+                echo "  → Application will continue in offline mode"
+            else
+                echo "  ✗ No valid cached license. Application may require re-activation."
+            fi
+        fi
+    fi
     echo ""
 fi
 
