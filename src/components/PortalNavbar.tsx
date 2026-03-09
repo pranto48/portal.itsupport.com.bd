@@ -79,7 +79,7 @@ const PortalNavbar = () => {
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
             {/* Cart icon (always visible) */}
-            <Link to="/cart" className="relative text-gray-300 hover:text-white transition-colors p-2">
+            <Link to="/cart" className="relative text-muted-foreground hover:text-foreground transition-colors p-2">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
