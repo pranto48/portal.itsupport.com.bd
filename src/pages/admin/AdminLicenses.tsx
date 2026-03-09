@@ -68,9 +68,24 @@ const AdminLicenses = () => {
     if (!editModal) return;
     await supabase.from('licenses').update({
       status: editModal.status, max_devices: editModal.max_devices, expires_at: editModal.expires_at || null,
+      bound_installation_id: editModal.bound_installation_id || null,
     }).eq('id', editModal.id);
     toast.success('Updated'); setEditModal(null); fetchAll();
   };
+
+  const handleReassign = async (licenseId: string, newInstallId: string) => {
+    const trimmed = newInstallId.trim();
+    await supabase.from('licenses').update({
+      bound_installation_id: trimmed || null,
+    }).eq('id', licenseId);
+    toast.success(trimmed ? 'Reassigned to new installation' : 'Unbound');
+    setBindingId(null);
+    setBindingValue('');
+    fetchAll();
+  };
+
+  // Collect known installation IDs for quick picker
+  const knownInstallations = [...new Set(licenses.map(l => l.bound_installation_id).filter(Boolean))] as string[];
 
   const categories = [...new Set(products.map((p: any) => p.category).filter(Boolean))];
 
