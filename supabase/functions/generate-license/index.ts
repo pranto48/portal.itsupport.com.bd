@@ -123,6 +123,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Non-admin auto_fulfill: verify order belongs to user and is free
+    if (!isAdmin && auto_fulfill) {
+      if (order.customer_id !== user.id) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized — order does not belong to you" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (Number(order.total_amount) > 0) {
+        return new Response(
+          JSON.stringify({ error: "Only free orders can be auto-fulfilled" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (order.status === "completed") {
       return new Response(
         JSON.stringify({ error: "Order already completed — licenses already issued" }),
