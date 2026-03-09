@@ -62,6 +62,7 @@ const AdminDashboard = () => {
           <Link to="/admin/products" className="btn-admin-primary text-center">Manage Products</Link>
           <Link to="/admin/tickets" className="btn-admin-primary text-center">Manage Tickets</Link>
           <Link to="/admin/reconciliation" className="btn-admin-primary text-center">License Reconciliation</Link>
+          <Link to="/admin/alerts" className="btn-admin-primary text-center">License Alerts</Link>
         </div>
       </div>
     </div>
