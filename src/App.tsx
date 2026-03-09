@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedRoute } from "@/components/AnimatedRoute";
 import { AnimatePresence } from "framer-motion";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
