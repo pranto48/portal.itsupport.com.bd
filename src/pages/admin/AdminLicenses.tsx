@@ -244,6 +244,13 @@ const AdminLicenses = () => {
                 <label className="block text-gray-300 text-sm font-bold mb-2">Expires At:</label>
                 <input type="date" className="form-admin-input" value={editModal.expires_at} onChange={e => setEditModal((m: any) => ({ ...m, expires_at: e.target.value }))} />
               </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-bold mb-2">Bound Installation ID:</label>
+                <input type="text" className="form-admin-input font-mono text-xs" placeholder="Leave empty to unbind" value={editModal.bound_installation_id || ''} onChange={e => setEditModal((m: any) => ({ ...m, bound_installation_id: e.target.value }))} list="edit-install-list" />
+                <datalist id="edit-install-list">
+                  {knownInstallations.map(i => <option key={i} value={i}>{i.slice(0, 40)}</option>)}
+                </datalist>
+              </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setEditModal(null)} className="btn-admin-secondary">Cancel</button>
                 <button type="submit" className="btn-admin-primary">Save</button>
