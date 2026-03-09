@@ -526,7 +526,7 @@ const Index = () => {
                 </li>
                 <li className="flex items-center gap-2 text-muted-foreground">
                   <Phone className="w-4 h-4 text-primary shrink-0" />
-                  <span>+880 1XXX-XXXXXX</span>
+                  <a href="tel:+8801915822266" className="hover:text-primary transition-colors">+880 1915-822266</a>
                 </li>
                 <li className="flex items-start gap-2 text-muted-foreground">
                   <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
