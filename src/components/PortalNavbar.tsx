@@ -137,7 +137,7 @@ const PortalNavbar = () => {
             <>
               {!isAdminPage && isAdmin && (
                 <Link to="/admin" onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/5">
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-foreground dark:text-white hover:bg-primary/5 dark:hover:bg-white/5">
                   <Lock className="w-4 h-4" />Admin Panel
                 </Link>
               )}
