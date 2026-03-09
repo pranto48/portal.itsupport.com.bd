@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Edit, Trash2, Unlink, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Unlink, X, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminLicenses = () => {
@@ -11,6 +11,8 @@ const AdminLicenses = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [editModal, setEditModal] = useState<any>(null);
+  const [bindingId, setBindingId] = useState<string | null>(null); // license id being reassigned
+  const [bindingValue, setBindingValue] = useState('');
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
 
   const fetchAll = async () => {
@@ -66,9 +68,24 @@ const AdminLicenses = () => {
     if (!editModal) return;
     await supabase.from('licenses').update({
       status: editModal.status, max_devices: editModal.max_devices, expires_at: editModal.expires_at || null,
+      bound_installation_id: editModal.bound_installation_id || null,
     }).eq('id', editModal.id);
     toast.success('Updated'); setEditModal(null); fetchAll();
   };
+
+  const handleReassign = async (licenseId: string, newInstallId: string) => {
+    const trimmed = newInstallId.trim();
+    await supabase.from('licenses').update({
+      bound_installation_id: trimmed || null,
+    }).eq('id', licenseId);
+    toast.success(trimmed ? 'Reassigned to new installation' : 'Unbound');
+    setBindingId(null);
+    setBindingValue('');
+    fetchAll();
+  };
+
+  // Collect known installation IDs for quick picker
+  const knownInstallations = [...new Set(licenses.map(l => l.bound_installation_id).filter(Boolean))] as string[];
 
   const categories = [...new Set(products.map((p: any) => p.category).filter(Boolean))];
 
@@ -158,13 +175,38 @@ const AdminLicenses = () => {
                      <span className={`px-2 py-1 rounded-full text-xs ${l.status === 'active' || l.status === 'free' ? 'bg-green-500' : 'bg-red-500'}`}>{l.status}</span>
                    </td>
                    <td className="py-3 px-4">{l.current_devices}/{l.max_devices}</td>
-                   <td className="py-3 px-4 text-xs">
-                     {l.bound_installation_id ? (
-                       <span className="font-mono text-yellow-300" title={l.bound_installation_id}>
-                         {l.bound_installation_id.slice(0, 20)}...
-                       </span>
+                   <td className="py-3 px-4 text-xs min-w-[200px]">
+                     {bindingId === l.id ? (
+                       <div className="flex flex-col gap-1">
+                         <div className="flex gap-1">
+                           <input
+                             type="text"
+                             className="form-admin-input text-xs py-1 px-2 flex-grow"
+                             placeholder="Enter or pick installation ID..."
+                             value={bindingValue}
+                             onChange={e => setBindingValue(e.target.value)}
+                             list={`install-list-${l.id}`}
+                           />
+                           <datalist id={`install-list-${l.id}`}>
+                             {knownInstallations.filter(i => i !== l.bound_installation_id).map(i => (
+                               <option key={i} value={i}>{i.slice(0, 30)}</option>
+                             ))}
+                           </datalist>
+                           <button onClick={() => handleReassign(l.id, bindingValue)} className="btn-admin-primary text-xs px-2 py-1" title="Save">✓</button>
+                           <button onClick={() => { setBindingId(null); setBindingValue(''); }} className="btn-admin-secondary text-xs px-2 py-1" title="Cancel">✗</button>
+                         </div>
+                       </div>
+                     ) : l.bound_installation_id ? (
+                       <div className="flex items-center gap-1">
+                         <span className="font-mono text-yellow-300 cursor-pointer" title={l.bound_installation_id} onClick={() => { setBindingId(l.id); setBindingValue(l.bound_installation_id); }}>
+                           {l.bound_installation_id.slice(0, 20)}...
+                         </span>
+                         <button onClick={() => { setBindingId(l.id); setBindingValue(l.bound_installation_id); }} className="text-gray-400 hover:text-blue-400" title="Reassign"><Link2 className="w-3 h-3" /></button>
+                       </div>
                      ) : (
-                       <span className="text-gray-500">Unbound</span>
+                       <button onClick={() => { setBindingId(l.id); setBindingValue(''); }} className="text-gray-500 hover:text-blue-400 flex items-center gap-1" title="Bind to installation">
+                         <Link2 className="w-3 h-3" /> Unbound
+                       </button>
                      )}
                    </td>
                    <td className="py-3 px-4">{l.expires_at ? new Date(l.expires_at).toLocaleDateString() : 'Never'}</td>
@@ -201,6 +243,13 @@ const AdminLicenses = () => {
               <div>
                 <label className="block text-gray-300 text-sm font-bold mb-2">Expires At:</label>
                 <input type="date" className="form-admin-input" value={editModal.expires_at} onChange={e => setEditModal((m: any) => ({ ...m, expires_at: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-bold mb-2">Bound Installation ID:</label>
+                <input type="text" className="form-admin-input font-mono text-xs" placeholder="Leave empty to unbind" value={editModal.bound_installation_id || ''} onChange={e => setEditModal((m: any) => ({ ...m, bound_installation_id: e.target.value }))} list="edit-install-list" />
+                <datalist id="edit-install-list">
+                  {knownInstallations.map(i => <option key={i} value={i}>{i.slice(0, 40)}</option>)}
+                </datalist>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setEditModal(null)} className="btn-admin-secondary">Cancel</button>
