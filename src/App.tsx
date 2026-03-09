@@ -30,7 +30,8 @@ const Products = lazy(() => import("./pages/Products"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Payment = lazy(() => import("./pages/Payment"));
 const Profile = lazy(() => import("./pages/Profile"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const ChangePassword = lazy(() => import("./pages/Settings"));
+const Settings = lazy(() => import("./pages/Settings"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminLicenses = lazy(() => import("./pages/admin/AdminLicenses"));
@@ -76,6 +77,7 @@ const AppRoutes = () => {
           <Route path="/payment" element={<ProtectedRoute><A><Payment /></A></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><A><Profile /></A></ProtectedRoute>} />
           <Route path="/change-password" element={<ProtectedRoute><A><ChangePassword /></A></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><A><Settings /></A></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><A><Support /></A></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><A><AdminDashboard /></A></ProtectedRoute>} />
           <Route path="/admin/licenses" element={<ProtectedRoute adminOnly><A><AdminLicenses /></A></ProtectedRoute>} />
