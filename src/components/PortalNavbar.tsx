@@ -53,7 +53,7 @@ const PortalNavbar = () => {
         <div className="flex items-center justify-between h-16">
           <Link to={user ? '/dashboard' : '/'} className="flex items-center gap-2">
             <Shield className="w-6 h-6 text-accent" />
-            <span className="text-lg font-bold text-white">IT Support BD</span>
+            <span className="text-lg font-bold text-foreground dark:text-white">IT Support BD</span>
           </Link>
 
           {/* Desktop nav links */}
