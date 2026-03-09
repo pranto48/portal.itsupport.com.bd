@@ -11,6 +11,8 @@ const AdminLicenses = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [editModal, setEditModal] = useState<any>(null);
+  const [bindingId, setBindingId] = useState<string | null>(null); // license id being reassigned
+  const [bindingValue, setBindingValue] = useState('');
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
 
   const fetchAll = async () => {
