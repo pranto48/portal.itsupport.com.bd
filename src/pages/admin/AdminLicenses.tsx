@@ -175,13 +175,38 @@ const AdminLicenses = () => {
                      <span className={`px-2 py-1 rounded-full text-xs ${l.status === 'active' || l.status === 'free' ? 'bg-green-500' : 'bg-red-500'}`}>{l.status}</span>
                    </td>
                    <td className="py-3 px-4">{l.current_devices}/{l.max_devices}</td>
-                   <td className="py-3 px-4 text-xs">
-                     {l.bound_installation_id ? (
-                       <span className="font-mono text-yellow-300" title={l.bound_installation_id}>
-                         {l.bound_installation_id.slice(0, 20)}...
-                       </span>
+                   <td className="py-3 px-4 text-xs min-w-[200px]">
+                     {bindingId === l.id ? (
+                       <div className="flex flex-col gap-1">
+                         <div className="flex gap-1">
+                           <input
+                             type="text"
+                             className="form-admin-input text-xs py-1 px-2 flex-grow"
+                             placeholder="Enter or pick installation ID..."
+                             value={bindingValue}
+                             onChange={e => setBindingValue(e.target.value)}
+                             list={`install-list-${l.id}`}
+                           />
+                           <datalist id={`install-list-${l.id}`}>
+                             {knownInstallations.filter(i => i !== l.bound_installation_id).map(i => (
+                               <option key={i} value={i}>{i.slice(0, 30)}</option>
+                             ))}
+                           </datalist>
+                           <button onClick={() => handleReassign(l.id, bindingValue)} className="btn-admin-primary text-xs px-2 py-1" title="Save">✓</button>
+                           <button onClick={() => { setBindingId(null); setBindingValue(''); }} className="btn-admin-secondary text-xs px-2 py-1" title="Cancel">✗</button>
+                         </div>
+                       </div>
+                     ) : l.bound_installation_id ? (
+                       <div className="flex items-center gap-1">
+                         <span className="font-mono text-yellow-300 cursor-pointer" title={l.bound_installation_id} onClick={() => { setBindingId(l.id); setBindingValue(l.bound_installation_id); }}>
+                           {l.bound_installation_id.slice(0, 20)}...
+                         </span>
+                         <button onClick={() => { setBindingId(l.id); setBindingValue(l.bound_installation_id); }} className="text-gray-400 hover:text-blue-400" title="Reassign"><Link2 className="w-3 h-3" /></button>
+                       </div>
                      ) : (
-                       <span className="text-gray-500">Unbound</span>
+                       <button onClick={() => { setBindingId(l.id); setBindingValue(''); }} className="text-gray-500 hover:text-blue-400 flex items-center gap-1" title="Bind to installation">
+                         <Link2 className="w-3 h-3" /> Unbound
+                       </button>
                      )}
                    </td>
                    <td className="py-3 px-4">{l.expires_at ? new Date(l.expires_at).toLocaleDateString() : 'Never'}</td>
