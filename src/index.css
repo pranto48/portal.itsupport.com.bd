@@ -12,8 +12,8 @@
     --card-foreground: 220 30% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
-    --primary: 220 60% 22%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 210 80% 45%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 215 25% 90%;
     --secondary-foreground: 220 30% 12%;
     --muted: 220 15% 94%;
@@ -26,13 +26,13 @@
     --input: 220 15% 88%;
     --ring: 210 80% 55%;
     --radius: 0.5rem;
-    --sidebar-background: 220 60% 22%;
-    --sidebar-foreground: 220 15% 90%;
-    --sidebar-primary: 210 80% 55%;
+    --sidebar-background: 220 25% 96%;
+    --sidebar-foreground: 220 30% 20%;
+    --sidebar-primary: 210 80% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 50% 28%;
-    --sidebar-accent-foreground: 220 15% 90%;
-    --sidebar-border: 220 40% 30%;
+    --sidebar-accent: 215 25% 90%;
+    --sidebar-accent-foreground: 220 30% 20%;
+    --sidebar-border: 220 15% 88%;
     --sidebar-ring: 210 80% 55%;
   }
 
@@ -73,12 +73,16 @@
   }
   body {
     font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    @apply bg-background text-foreground;
+  }
+  .dark body,
+  body.dark {
     background: radial-gradient(circle at 20% 20%, rgba(80, 227, 194, 0.08), transparent 30%),
                 radial-gradient(circle at 80% 10%, rgba(74, 144, 226, 0.1), transparent 32%),
                 linear-gradient(135deg, #0f172a 0%, #1f2937 50%, #111827 100%);
-    min-height: 100vh;
     color: #e2e8f0;
-    overflow-x: hidden;
   }
 }
 
@@ -454,4 +458,96 @@
 @media (max-width: 640px) {
   .hero-title { font-size: 1.875rem; }
   .accent-badge { font-size: 0.7rem; padding: 0.4rem 0.8rem; }
+}
+
+/* Light mode glass overrides */
+:root:not(.dark) .glass-navbar,
+:not(.dark) .glass-navbar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.72));
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .admin-navbar,
+:not(.dark) .admin-navbar {
+  background: linear-gradient(90deg, hsl(220 30% 15% / 0.95), hsl(220 25% 22% / 0.9));
+}
+
+:root:not(.dark) .glass-card,
+:not(.dark) .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.75));
+  border-color: hsl(var(--border));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .glass-card:hover,
+:not(.dark) .glass-card:hover {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+:root:not(.dark) .nav-link,
+:not(.dark) .nav-link {
+  color: hsl(220 30% 30%);
+}
+
+:root:not(.dark) .nav-link:hover,
+:not(.dark) .nav-link:hover {
+  color: hsl(var(--primary));
+}
+
+:root:not(.dark) .nav-link.active,
+:not(.dark) .nav-link.active {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.15);
+}
+
+:root:not(.dark) .form-glass-input,
+:not(.dark) .form-glass-input {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .accent-badge,
+:not(.dark) .accent-badge {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.25);
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .floating-orb,
+:not(.dark) .floating-orb {
+  opacity: 0.12;
+}
+
+:root:not(.dark) .animated-grid,
+:not(.dark) .animated-grid {
+  opacity: 0.08;
+}
+
+:root:not(.dark) .glass-chip,
+:not(.dark) .glass-chip {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+:root:not(.dark) .glow-pill,
+:not(.dark) .glow-pill {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+:root:not(.dark) .btn-glass-secondary,
+:not(.dark) .btn-glass-secondary {
+  color: hsl(var(--foreground));
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--border));
+}
+
+:root:not(.dark) .section-heading::after,
+:not(.dark) .section-heading::after {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.4), transparent);
 }

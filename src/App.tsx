@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedRoute } from "@/components/AnimatedRoute";
 import { AnimatePresence } from "framer-motion";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -92,21 +93,23 @@ const AppRoutes = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <AuthProvider>
-          <CartProvider>
-            <PortalNavbar />
-            <AppRoutes />
-          </CartProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <AuthProvider>
+            <CartProvider>
+              <PortalNavbar />
+              <AppRoutes />
+            </CartProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
