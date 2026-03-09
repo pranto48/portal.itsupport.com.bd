@@ -255,6 +255,44 @@ const Index = () => {
             <p className="text-muted-foreground text-center max-w-2xl">Docker-powered network intelligence for modern infrastructure teams</p>
           </AnimatedSection>
 
+          {/* AMPNM Screenshot Carousel */}
+          <AnimatedSection>
+            <div className="glass-card !p-0 overflow-hidden mb-8 relative group">
+              <div className="relative aspect-video">
+                <img
+                  src={ampnmScreenshots[ampnmSlide].src}
+                  alt={ampnmScreenshots[ampnmSlide].label}
+                  className="w-full h-full object-cover object-top transition-opacity duration-500"
+                  loading="lazy"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6">
+                  <p className="text-white font-semibold text-lg text-center">{ampnmScreenshots[ampnmSlide].label}</p>
+                </div>
+                <button
+                  onClick={() => setAmpnmSlide(prev => (prev - 1 + ampnmScreenshots.length) % ampnmScreenshots.length)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex justify-center gap-2 py-3 bg-secondary/60">
+                {ampnmScreenshots.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAmpnmSlide(i)}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i === ampnmSlide ? 'bg-primary w-6' : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </AnimatedSection>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <AnimatedSection>
               <div className="glass-card p-8 tilt-card h-full">
