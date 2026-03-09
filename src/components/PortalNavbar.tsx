@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useState } from 'react';
 import { Menu, X, Shield, ShoppingCart, User, LifeBuoy, LayoutDashboard, Package, LogOut, Lock, Home, Database, Globe, Settings, LogIn, UserPlus, Tag } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const PortalNavbar = () => {
   const { user, isAdmin, profile, signOut } = useAuth();
