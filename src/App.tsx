@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -60,6 +61,7 @@ const A = ({ children }: { children: React.ReactNode }) => <AnimatedRoute>{child
 
 const AppRoutes = () => {
   const location = useLocation();
+  useSiteSettings();
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<PageLoader />}>
