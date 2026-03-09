@@ -61,6 +61,7 @@ const A = ({ children }: { children: React.ReactNode }) => <AnimatedRoute>{child
 
 const AppRoutes = () => {
   const location = useLocation();
+  useSiteSettings();
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<PageLoader />}>
