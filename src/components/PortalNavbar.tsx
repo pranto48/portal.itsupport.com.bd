@@ -77,6 +77,7 @@ const PortalNavbar = () => {
 
           {/* Desktop right side */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             {/* Cart icon (always visible) */}
             <Link to="/cart" className="relative text-gray-300 hover:text-white transition-colors p-2">
               <ShoppingCart className="w-5 h-5" />
