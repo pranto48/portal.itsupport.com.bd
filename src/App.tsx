@@ -32,6 +32,7 @@ const Payment = lazy(() => import("./pages/Payment"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ChangePassword = lazy(() => import("./pages/Settings"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Support = lazy(() => import("./pages/Support"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminLicenses = lazy(() => import("./pages/admin/AdminLicenses"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
