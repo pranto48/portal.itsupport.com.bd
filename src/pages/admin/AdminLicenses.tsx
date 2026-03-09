@@ -109,6 +109,40 @@ const AdminLicenses = () => {
     setBindingId(null); setBindingValue(''); fetchAll();
   };
 
+  const handleBulkRevalidate = async () => {
+    const target = filtered.filter(l => l.status === 'active' || l.status === 'free');
+    if (!target.length) { toast.error('No active/free licenses to validate'); return; }
+    if (!confirm(`Re-validate ${target.length} active/free license(s) against verify-license endpoint?`)) return;
+
+    setBulkValidating(true);
+    setBulkProgress({ done: 0, total: target.length, changed: 0 });
+    let changed = 0;
+
+    for (let i = 0; i < target.length; i++) {
+      const lic = target[i];
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-license', {
+          body: {
+            app_license_key: lic.license_key,
+            user_id: lic.customer_id,
+            current_device_count: lic.current_devices,
+            installation_id: lic.bound_installation_id || undefined,
+          },
+        });
+        // Check if status changed after verification
+        const { data: refreshed } = await supabase.from('licenses').select('status').eq('id', lic.id).single();
+        if (refreshed && refreshed.status !== lic.status) changed++;
+      } catch (err) {
+        console.error(`Verify failed for ${lic.license_key}:`, err);
+      }
+      setBulkProgress({ done: i + 1, total: target.length, changed });
+    }
+
+    setBulkValidating(false);
+    toast.success(`Bulk re-validation complete: ${target.length} checked, ${changed} status changed`);
+    fetchAll();
+  };
+
   const knownInstallations = [...new Set(licenses.map(l => l.bound_installation_id).filter(Boolean))] as string[];
   const statuses = [...new Set(licenses.map(l => l.status).filter(Boolean))];
 
