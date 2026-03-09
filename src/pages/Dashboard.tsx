@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Copy, Download, Package, ShoppingBag } from 'lucide-react';
+import { Copy, Download, Package, ShoppingBag, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
@@ -81,6 +81,27 @@ const Dashboard = () => {
                     <span><strong>Current:</strong> {license.current_devices}</span>
                     <span><strong>Expires:</strong> {license.expires_at ? new Date(license.expires_at).toLocaleDateString() : 'Never'}</span>
                   </div>
+                  {(license.products as any)?.category === 'LifeOS' && license.max_devices > 0 && (
+                    (() => {
+                      const usage = license.current_devices / license.max_devices;
+                      if (usage >= 1) {
+                        return (
+                          <div className="mt-3 flex items-center gap-2 rounded-md bg-red-500/15 border border-red-500/30 px-3 py-2 text-sm text-red-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            <span>Device quota reached ({license.current_devices}/{license.max_devices}). Upgrade your plan for more devices.</span>
+                          </div>
+                        );
+                      } else if (usage >= 0.75) {
+                        return (
+                          <div className="mt-3 flex items-center gap-2 rounded-md bg-yellow-500/15 border border-yellow-500/30 px-3 py-2 text-sm text-yellow-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            <span>Nearing device quota ({license.current_devices}/{license.max_devices}). Consider upgrading.</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()
+                  )}
                 </div>
               ))}
             </div>
