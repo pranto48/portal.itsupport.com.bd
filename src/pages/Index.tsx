@@ -10,6 +10,7 @@ import {
   Github, Facebook, Twitter, Mail, MapPin, Phone
 } from "lucide-react";
 
+import logoImg from '@/assets/logo-itsupportbd.png';
 import lifeosDashboard from '@/assets/lifeos-dashboard.png';
 import lifeosCalendar from '@/assets/lifeos-calendar.png';
 import lifeosTasks from '@/assets/lifeos-tasks.png';
@@ -19,6 +20,11 @@ import lifeosGoals from '@/assets/lifeos-goals.png';
 import lifeosProjects from '@/assets/lifeos-projects.png';
 import lifeosTickets from '@/assets/lifeos-tickets.png';
 import lifeosSettings from '@/assets/lifeos-settings.png';
+import ampnmDashboard from '@/assets/ampnm-dashboard.png';
+import ampnmDevices from '@/assets/ampnm-devices.png';
+import ampnmMap from '@/assets/ampnm-map.png';
+import ampnmPingHistory from '@/assets/ampnm-ping-history.png';
+import ampnmDocs from '@/assets/ampnm-docs.png';
 
 const lifeosScreenshots = [
   { src: lifeosDashboard, label: 'Customizable Dashboard' },
@@ -30,6 +36,14 @@ const lifeosScreenshots = [
   { src: lifeosProjects, label: 'Projects' },
   { src: lifeosTickets, label: 'Support Tickets' },
   { src: lifeosSettings, label: 'Backup & Restore' },
+];
+
+const ampnmScreenshots = [
+  { src: ampnmDashboard, label: 'Real-time Dashboard' },
+  { src: ampnmMap, label: 'Network Topology Map' },
+  { src: ampnmDevices, label: 'Device Management' },
+  { src: ampnmPingHistory, label: 'Ping History & Analytics' },
+  { src: ampnmDocs, label: 'Documentation & Guides' },
 ];
 
 const ampnmHighlights = [
@@ -123,10 +137,12 @@ const CountUp = ({ target, suffix = '' }: { target: string; suffix?: string }) =
 const Index = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const [ampnmSlide, setAmpnmSlide] = useState(0);
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % lifeosScreenshots.length);
-    }, 5000);
+      setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length);
+    }, 6000);
     return () => clearInterval(timer);
   }, []);
 
@@ -153,7 +169,9 @@ const Index = () => {
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="flex flex-col items-center"
               >
+                <img src={logoImg} alt="IT Support BD Logo" className="w-24 h-24 md:w-32 md:h-32 mb-4 object-contain" />
                 <span className="accent-badge mx-auto">
                   <Rocket className="w-4 h-4" />
                   ITSupport BD Software Portal
@@ -235,6 +253,44 @@ const Index = () => {
               <Network className="w-5 h-5" /> AMPNM — Advanced Network Monitoring
             </div>
             <p className="text-muted-foreground text-center max-w-2xl">Docker-powered network intelligence for modern infrastructure teams</p>
+          </AnimatedSection>
+
+          {/* AMPNM Screenshot Carousel */}
+          <AnimatedSection>
+            <div className="glass-card !p-0 overflow-hidden mb-8 relative group">
+              <div className="relative aspect-video">
+                <img
+                  src={ampnmScreenshots[ampnmSlide].src}
+                  alt={ampnmScreenshots[ampnmSlide].label}
+                  className="w-full h-full object-cover object-top transition-opacity duration-500"
+                  loading="lazy"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6">
+                  <p className="text-white font-semibold text-lg text-center">{ampnmScreenshots[ampnmSlide].label}</p>
+                </div>
+                <button
+                  onClick={() => setAmpnmSlide(prev => (prev - 1 + ampnmScreenshots.length) % ampnmScreenshots.length)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setAmpnmSlide(prev => (prev + 1) % ampnmScreenshots.length)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex justify-center gap-2 py-3 bg-secondary/60">
+                {ampnmScreenshots.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAmpnmSlide(i)}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i === ampnmSlide ? 'bg-primary w-6' : 'bg-muted-foreground/40 hover:bg-muted-foreground/60'}`}
+                  />
+                ))}
+              </div>
+            </div>
           </AnimatedSection>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -476,7 +532,7 @@ const Index = () => {
             {/* Brand */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Shield className="w-6 h-6 text-primary" />
+                <img src={logoImg} alt="IT Support BD" className="w-8 h-8 object-contain" />
                 <span className="font-bold text-lg text-foreground">IT Support BD</span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
