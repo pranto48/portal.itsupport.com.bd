@@ -9,15 +9,57 @@ echo "║              Docker Version - Starting...                  ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check if license key is provided
+# --- Startup License Auto-Check ---
+PORTAL_CHECK_URL="${LICENSE_PORTAL_URL:-https://abcytwvuntyicdknpzju.supabase.co/functions/v1/startup-license-check}"
+INSTALLATION_ID_FILE="/var/www/html/data/.installation_id"
+
+# Get or generate installation ID
+if [ -f "$INSTALLATION_ID_FILE" ]; then
+    INSTALL_ID=$(cat "$INSTALLATION_ID_FILE")
+else
+    INSTALL_ID="AMPNM-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen 2>/dev/null || date +%s%N)"
+    mkdir -p "$(dirname "$INSTALLATION_ID_FILE")"
+    echo "$INSTALL_ID" > "$INSTALLATION_ID_FILE"
+fi
+
 if [ -z "${APP_LICENSE_KEY:-}" ]; then
     echo "⚠️  WARNING: No license key provided!"
     echo "    Set APP_LICENSE_KEY in docker-compose.yml"
     echo "    Application will require license activation after startup."
     echo ""
 else
-    echo "✓ License key detected"
-    echo "  License will be validated on first access"
+    echo "→ Validating license on startup..."
+    LICENSE_RESPONSE=$(curl -s -m 15 -X POST "$PORTAL_CHECK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"license_key\":\"${APP_LICENSE_KEY}\",\"installation_id\":\"${INSTALL_ID}\",\"product\":\"AMPNM\"}" \
+        2>/dev/null || echo '{"valid":false,"status":"offline","message":"Portal unreachable"}')
+
+    LICENSE_VALID=$(echo "$LICENSE_RESPONSE" | grep -o '"valid":\s*true' || true)
+    LICENSE_STATUS=$(echo "$LICENSE_RESPONSE" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+    LICENSE_MSG=$(echo "$LICENSE_RESPONSE" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+    LICENSE_WARNING=$(echo "$LICENSE_RESPONSE" | grep -o '"warning":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+
+    if [ -n "$LICENSE_VALID" ]; then
+        echo "✓ License validated: ${LICENSE_STATUS}"
+        if [ -n "$LICENSE_WARNING" ]; then
+            echo "  ⚠️  ${LICENSE_WARNING}"
+        fi
+        # Cache successful validation timestamp
+        echo "$(date -Iseconds)" > /var/www/html/data/.last_license_check
+        echo "$LICENSE_STATUS" > /var/www/html/data/.license_status
+    else
+        echo "⚠️  License check: ${LICENSE_STATUS} - ${LICENSE_MSG}"
+        # Check if we have a cached valid status (offline grace)
+        if [ -f "/var/www/html/data/.license_status" ]; then
+            CACHED_STATUS=$(cat /var/www/html/data/.license_status)
+            if [ "$CACHED_STATUS" = "active" ] || [ "$CACHED_STATUS" = "free" ]; then
+                echo "  → Using cached license status: ${CACHED_STATUS}"
+                echo "  → Application will continue in offline mode"
+            else
+                echo "  ✗ No valid cached license. Application may require re-activation."
+            fi
+        fi
+    fi
     echo ""
 fi
 
