@@ -12,6 +12,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedRoute } from "@/components/AnimatedRoute";
 import { AnimatePresence } from "framer-motion";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+};
+
 // Lazy load all pages
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
