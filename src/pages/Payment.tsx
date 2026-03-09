@@ -26,13 +26,14 @@ const Payment = () => {
     setLoading(true);
     setError('');
 
-    const status = total === 0 ? 'completed' : 'pending_approval';
-    const method = total === 0 ? 'free' : paymentMethod;
+    const isFree = total === 0;
+    const status = isFree ? 'completed' : 'pending_approval';
+    const method = isFree ? 'free' : paymentMethod;
 
     const { data: order, error: orderErr } = await supabase.from('orders').insert({
       customer_id: user.id,
       total_amount: total,
-      status,
+      status: isFree ? 'pending_approval' : 'pending_approval',
       payment_method: method,
       transaction_id: transactionId || null,
       sender_number: senderNumber || null,
@@ -53,9 +54,31 @@ const Payment = () => {
       });
     }
 
+    // Auto-fulfill free orders via edge function
+    if (isFree) {
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-license`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ order_id: order.id, auto_fulfill: true }),
+          }
+        );
+      } catch {
+        // Free order still created, admin can fulfill manually
+      }
+    }
+
     clearCart();
     setLoading(false);
-    navigate(`/dashboard?${status === 'completed' ? 'order_success' : 'order_pending'}=1`);
+    navigate(`/dashboard?${isFree ? 'order_success' : 'order_pending'}=1`);
   };
 
   return (
