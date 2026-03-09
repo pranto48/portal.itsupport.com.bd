@@ -16,6 +16,8 @@ const AdminLicenses = () => {
   const [bindingId, setBindingId] = useState<string | null>(null);
   const [bindingValue, setBindingValue] = useState('');
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
+  const [bulkValidating, setBulkValidating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, changed: 0 });
 
   const fetchAll = async () => {
     const { data: l } = await supabase.from('licenses').select('*, products(name, category)');
@@ -105,6 +107,40 @@ const AdminLicenses = () => {
     await supabase.from('licenses').update({ bound_installation_id: trimmed || null }).eq('id', licenseId);
     toast.success(trimmed ? 'Reassigned to new installation' : 'Unbound');
     setBindingId(null); setBindingValue(''); fetchAll();
+  };
+
+  const handleBulkRevalidate = async () => {
+    const target = filtered.filter(l => l.status === 'active' || l.status === 'free');
+    if (!target.length) { toast.error('No active/free licenses to validate'); return; }
+    if (!confirm(`Re-validate ${target.length} active/free license(s) against verify-license endpoint?`)) return;
+
+    setBulkValidating(true);
+    setBulkProgress({ done: 0, total: target.length, changed: 0 });
+    let changed = 0;
+
+    for (let i = 0; i < target.length; i++) {
+      const lic = target[i];
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-license', {
+          body: {
+            app_license_key: lic.license_key,
+            user_id: lic.customer_id,
+            current_device_count: lic.current_devices,
+            installation_id: lic.bound_installation_id || undefined,
+          },
+        });
+        // Check if status changed after verification
+        const { data: refreshed } = await supabase.from('licenses').select('status').eq('id', lic.id).single();
+        if (refreshed && refreshed.status !== lic.status) changed++;
+      } catch (err) {
+        console.error(`Verify failed for ${lic.license_key}:`, err);
+      }
+      setBulkProgress({ done: i + 1, total: target.length, changed });
+    }
+
+    setBulkValidating(false);
+    toast.success(`Bulk re-validation complete: ${target.length} checked, ${changed} status changed`);
+    fetchAll();
   };
 
   const knownInstallations = [...new Set(licenses.map(l => l.bound_installation_id).filter(Boolean))] as string[];
@@ -251,9 +287,15 @@ const AdminLicenses = () => {
               <Leaf className="w-3 h-3 inline mr-1" />LifeOS ({stats.lifeos})
             </button>
           </div>
-          <button onClick={fetchAll} className="text-gray-400 hover:text-blue-400 text-sm flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> Refresh
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleBulkRevalidate} disabled={bulkValidating} className="btn-admin-primary text-sm flex items-center gap-1">
+              <Shield className={`w-3 h-3 ${bulkValidating ? 'animate-pulse' : ''}`} />
+              {bulkValidating ? `Validating ${bulkProgress.done}/${bulkProgress.total}...` : 'Refresh Licenses'}
+            </button>
+            <button onClick={fetchAll} className="text-gray-400 hover:text-blue-400 text-sm flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Search + Status Filter */}
