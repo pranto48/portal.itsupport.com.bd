@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify user is admin
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -65,6 +64,7 @@ Deno.serve(async (req) => {
       "ticket_replies",
     ];
 
+    // Export all tables
     if (action === "export") {
       const backup: Record<string, unknown[]> = {};
       for (const table of tables) {
@@ -93,34 +93,91 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Per-table restore (new endpoint for progress tracking)
+    if (action === "restore-table") {
+      const tableName = url.searchParams.get("table");
+      const phase = url.searchParams.get("phase"); // "delete" or "restore"
+
+      if (!tableName || !tables.includes(tableName)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid table: ${tableName}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (phase === "delete") {
+        const { error } = await adminClient
+          .from(tableName)
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+
+        if (error) {
+          console.error(`Error deleting ${tableName}:`, error.message);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, table: tableName, phase: "delete" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (phase === "restore") {
+        const body = await req.json();
+        const rows = body.rows;
+
+        if (!rows || !Array.isArray(rows)) {
+          return new Response(
+            JSON.stringify({ error: "Invalid rows data" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (rows.length === 0) {
+          return new Response(
+            JSON.stringify({ success: true, table: tableName, count: 0 }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error } = await adminClient.from(tableName).upsert(rows, { onConflict: "id" });
+        if (error) {
+          console.error(`Error restoring ${tableName}:`, error.message);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, table: tableName, count: rows.length }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: "Invalid phase. Use phase=delete or phase=restore" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Legacy full restore (kept for compatibility)
     if (action === "restore") {
       const body = await req.json();
       if (!body.tables || typeof body.tables !== "object") {
         return new Response(
           JSON.stringify({ error: "Invalid backup file format" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       const results: Record<string, { success: boolean; count: number; error?: string }> = {};
-
-      // Restore in dependency order (reverse of delete order)
-      const restoreOrder = [
-        "products",
-        "profiles",
-        "user_roles",
-        "licenses",
-        "orders",
-        "order_items",
-        "support_tickets",
-        "ticket_replies",
-      ];
-
-      // Delete in reverse dependency order
+      const restoreOrder = [...tables];
       const deleteOrder = [...restoreOrder].reverse();
+
       for (const table of deleteOrder) {
         if (body.tables[table]) {
           await adminClient.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -133,10 +190,8 @@ Deno.serve(async (req) => {
           results[table] = { success: true, count: 0 };
           continue;
         }
-
         const { error } = await adminClient.from(table).upsert(rows, { onConflict: "id" });
         if (error) {
-          console.error(`Error restoring ${table}:`, error.message);
           results[table] = { success: false, count: rows.length, error: error.message };
         } else {
           results[table] = { success: true, count: rows.length };
@@ -145,27 +200,19 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, message: "Database restored", results }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use ?action=export or ?action=restore" }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Invalid action" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("Backup function error:", err);
     return new Response(
       JSON.stringify({ error: err.message || "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
