@@ -115,11 +115,15 @@ const AdminLicenses = () => {
       </div>
 
       <div className="admin-card p-6">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
           <input type="text" placeholder="Search by key or email..." className="form-admin-input flex-grow" value={search} onChange={e => setSearch(e.target.value)} />
           <select className="form-admin-input w-auto" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
             <option value="all">All Categories</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="form-admin-input w-auto" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="all">All Statuses</option>
+            {statuses.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
         <div className="overflow-x-auto">
