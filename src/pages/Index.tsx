@@ -38,6 +38,14 @@ const lifeosScreenshots = [
   { src: lifeosSettings, label: 'Backup & Restore' },
 ];
 
+const ampnmScreenshots = [
+  { src: ampnmDashboard, label: 'Real-time Dashboard' },
+  { src: ampnmMap, label: 'Network Topology Map' },
+  { src: ampnmDevices, label: 'Device Management' },
+  { src: ampnmPingHistory, label: 'Ping History & Analytics' },
+  { src: ampnmDocs, label: 'Documentation & Guides' },
+];
+
 const ampnmHighlights = [
   { icon: Network, label: 'Network Mapping' },
   { icon: Monitor, label: 'Device Monitoring' },
