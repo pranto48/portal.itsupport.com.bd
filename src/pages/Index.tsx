@@ -5,7 +5,8 @@ import { useRef } from "react";
 import {
   Shield, Zap, Smartphone, Headphones, Download, Network,
   Monitor, Cloud, Database, BarChart3, Calendar, CheckSquare, FileText,
-  Target, Wallet, Users, Ticket, ChevronLeft, ChevronRight, ArrowRight, Star, Rocket
+  Target, Wallet, Users, Ticket, ChevronLeft, ChevronRight, ArrowRight, Star, Rocket,
+  Github, Facebook, Twitter, Mail, MapPin, Phone
 } from "lucide-react";
 
 import lifeosDashboard from '@/assets/lifeos-dashboard.png';
