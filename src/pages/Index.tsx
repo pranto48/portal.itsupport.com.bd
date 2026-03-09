@@ -169,7 +169,9 @@ const Index = () => {
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="flex flex-col items-center"
               >
+                <img src={logoImg} alt="IT Support BD Logo" className="w-24 h-24 md:w-32 md:h-32 mb-4 object-contain" />
                 <span className="accent-badge mx-auto">
                   <Rocket className="w-4 h-4" />
                   ITSupport BD Software Portal
