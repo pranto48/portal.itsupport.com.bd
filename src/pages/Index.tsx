@@ -532,7 +532,7 @@ const Index = () => {
             {/* Brand */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Shield className="w-6 h-6 text-primary" />
+                <img src={logoImg} alt="IT Support BD" className="w-8 h-8 object-contain" />
                 <span className="font-bold text-lg text-foreground">IT Support BD</span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
