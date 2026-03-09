@@ -118,7 +118,7 @@ const PortalNavbar = () => {
                 </span>
               )}
             </Link>
-            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white">
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground dark:text-white">
               {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
