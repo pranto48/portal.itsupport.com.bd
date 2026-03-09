@@ -544,7 +544,7 @@ const Index = () => {
             <div className="flex items-center gap-6 text-xs">
               <Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms of Service</Link>
-              <Link to="/terms#refund" className="text-muted-foreground hover:text-primary transition-colors">Refund Policy</Link>
+              <Link to="/refund" className="text-muted-foreground hover:text-primary transition-colors">Refund Policy</Link>
             </div>
           </div>
         </div>

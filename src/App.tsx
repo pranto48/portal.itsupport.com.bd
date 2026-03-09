@@ -96,6 +96,7 @@ const AppRoutes = () => {
           <Route path="/admin/alerts" element={<ProtectedRoute adminOnly><A><AdminAlerts /></A></ProtectedRoute>} />
           <Route path="/privacy" element={<A><PrivacyPolicy /></A>} />
           <Route path="/terms" element={<A><TermsOfService /></A>} />
+          <Route path="/refund" element={<A><RefundPolicy /></A>} />
           <Route path="*" element={<A><NotFound /></A>} />
         </Routes>
       </Suspense>
