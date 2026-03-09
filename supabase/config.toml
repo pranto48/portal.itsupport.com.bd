@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generate-license]
 verify_jwt = false
+
+[functions.startup-license-check]
+verify_jwt = false
