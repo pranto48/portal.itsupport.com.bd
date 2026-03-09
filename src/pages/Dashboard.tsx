@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Copy, Download, Package, ShoppingBag } from 'lucide-react';
+import { Copy, Download, Package, ShoppingBag, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
