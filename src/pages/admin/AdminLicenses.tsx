@@ -9,6 +9,7 @@ const AdminLicenses = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [editModal, setEditModal] = useState<any>(null);
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
 
