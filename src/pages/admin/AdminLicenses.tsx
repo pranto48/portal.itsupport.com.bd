@@ -16,6 +16,8 @@ const AdminLicenses = () => {
   const [bindingId, setBindingId] = useState<string | null>(null);
   const [bindingValue, setBindingValue] = useState('');
   const [genForm, setGenForm] = useState({ customer_id: '', product_id: '', status: 'active' });
+  const [bulkValidating, setBulkValidating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, changed: 0 });
 
   const fetchAll = async () => {
     const { data: l } = await supabase.from('licenses').select('*, products(name, category)');
