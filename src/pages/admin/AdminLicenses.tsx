@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Edit, Trash2, Unlink, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Unlink, X, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminLicenses = () => {
