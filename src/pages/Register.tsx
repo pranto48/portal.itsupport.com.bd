@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserPlus } from 'lucide-react';
+import registerHero from '@/assets/register-hero.png';
 
 const Register = () => {
   const [firstName, setFirstName] = useState('');
@@ -80,6 +81,7 @@ const Register = () => {
       </div>
 
       <div className="glass-card p-10 space-y-4">
+        <img src={registerHero} alt="Account Setup" className="w-full h-48 object-cover rounded-xl opacity-80 mb-4" />
         <h2 className="text-2xl font-semibold text-white">What you get</h2>
         <p className="text-gray-300">A polished onboarding with automatic free license provisioning.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-200">

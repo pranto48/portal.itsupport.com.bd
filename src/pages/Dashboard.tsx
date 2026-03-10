@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, Package, ShoppingBag, AlertTriangle, Monitor, Leaf, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import dashboardHero from '@/assets/dashboard-hero.png';
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
@@ -135,7 +136,16 @@ const Dashboard = () => {
 
   return (
     <div className="page-content max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-foreground mb-8 text-center">Welcome, {displayName}!</h1>
+      {/* Dashboard Hero Banner */}
+      <div className="glass-card !p-0 overflow-hidden mb-8 relative">
+        <img src={dashboardHero} alt="Dashboard Overview" className="w-full h-48 md:h-56 object-cover opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent flex items-center px-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">Welcome, {displayName}!</h1>
+            <p className="text-gray-300 mt-1">Manage your licenses, orders, and support from one place.</p>
+          </div>
+        </div>
+      </div>
 
       {searchParams.get('order_success') && (
         <div className="alert-glass-success mb-4">Your order has been placed successfully! Your licenses are now available below.</div>
