@@ -98,7 +98,16 @@ const Support = () => {
 
   return (
     <div className="page-content max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-white mb-8 text-center">Support Tickets</h1>
+      {/* Support Hero Banner */}
+      <div className="glass-card !p-0 overflow-hidden mb-8 relative">
+        <img src={supportHero} alt="Support Center" className="w-full h-40 md:h-52 object-cover opacity-50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent flex items-center px-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">Support Center</h1>
+            <p className="text-gray-300 mt-1">Submit tickets and get help from our team.</p>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 glass-card p-6 h-fit">
           <h2 className="text-2xl font-semibold text-white mb-4">Submit New Ticket</h2>

@@ -31,9 +31,7 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="glass-card user-login-card p-8 form-fade-in">
           <div className="text-center mb-8">
-            <div className="feature-icon mx-auto w-fit mb-4">
-              <LogIn className="w-8 h-8 text-blue-200" />
-            </div>
+            <img src={loginHero} alt="Secure Login" className="w-32 h-32 mx-auto mb-4 rounded-2xl object-cover opacity-90" />
             <h1 className="text-3xl font-bold text-white">Customer Login</h1>
             <p className="text-gray-300 mt-2">Sign in to manage your licenses and support tickets</p>
           </div>
