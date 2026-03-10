@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Send, MessageCircle, ArrowLeft, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
+import supportHero from '@/assets/support-hero.png';
 
 const Support = () => {
   const { user, profile } = useAuth();
