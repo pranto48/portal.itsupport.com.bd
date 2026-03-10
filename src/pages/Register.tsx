@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserPlus } from 'lucide-react';
+import registerHero from '@/assets/register-hero.png';
 
 const Register = () => {
   const [firstName, setFirstName] = useState('');
