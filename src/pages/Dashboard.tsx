@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, Package, ShoppingBag, AlertTriangle, Monitor, Leaf, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import dashboardHero from '@/assets/dashboard-hero.png';
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
