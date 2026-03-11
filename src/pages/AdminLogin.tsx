@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Shield, LogIn, Lock, Fingerprint } from 'lucide-react';
+import logoImg from '@/assets/logo-itsupportbd.png';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
