@@ -33,7 +33,7 @@ const AdminLogin = () => {
         <div className="admin-card p-10 form-fade-in" style={{ border: '1px solid rgba(80,227,194,0.35)' }}>
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-1">
-              <span className="accent-badge"><Shield className="w-4 h-4" /> Admin Console</span>
+              <span className="accent-badge"><img src={logoImg} alt="IT Support BD" className="w-5 h-5 rounded" /> Admin Console</span>
               <span className="accent-badge"><Lock className="w-4 h-4" /> NOC Only</span>
             </div>
             <div className="space-y-2">

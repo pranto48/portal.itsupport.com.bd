@@ -87,7 +87,16 @@ const _SK = {
 export function getInstallationId(): string {
   let id = localStorage.getItem(_SK.ii);
   if (!id) {
-    id = 'LIFEOS-' + crypto.randomUUID();
+    // Use crypto.randomUUID if available, otherwise fallback for Docker/edge environments
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      id = 'LIFEOS-' + crypto.randomUUID();
+    } else {
+      id = 'LIFEOS-' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
     localStorage.setItem(_SK.ii, id);
   }
   return id;
