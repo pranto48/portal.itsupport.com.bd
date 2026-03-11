@@ -107,6 +107,16 @@ export function getInstallationId(): string {
  * This is NOT a security boundary (client can read it), but raises the bar
  * for casual tampering — the real check happens server-side.
  */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 async function computeIntegrity(data: Record<string, unknown>): Promise<string> {
   const payload = JSON.stringify([
     data.licenseKey,
@@ -116,13 +126,17 @@ async function computeIntegrity(data: Record<string, unknown>): Promise<string> 
     data._iat,
     getInstallationId(),
   ]);
-  const buf = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(payload)
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const buf = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(payload)
+    );
+    return Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Fallback for non-secure contexts (e.g. Docker over HTTP)
+  return simpleHash(payload);
 }
 
 /** Store license info with integrity marker */

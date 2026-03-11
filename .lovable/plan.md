@@ -1,20 +1,88 @@
 
 
-## Problem
+# LifeOS Docker Install System -- Admin + License Setup (like AMPNM)
 
-The error `Cannot read properties of undefined (reading 'digest')` occurs in the LifeOS Docker environment because `crypto.subtle` is **undefined** in non-secure contexts (HTTP without HTTPS). Docker containers often run on plain HTTP, where the Web Crypto API's `subtle` interface is not available.
+## Overview
 
-The issue is in `lifeos/src/lib/licenseConfig.ts` at the `computeIntegrity` function (line 119), which calls `crypto.subtle.digest('SHA-256', ...)` without checking if `crypto.subtle` exists. This function is called by both `saveLicenseInfo` and `getLicenseInfo`, breaking the entire license flow.
+Create a Docker entrypoint script for LifeOS that mirrors the AMPNM Docker install experience: on first launch, the system prompts for admin credentials and then asks for a license key before granting access. This adds a `docker-entrypoint.sh` to the LifeOS backend container, enhances the backend server to enforce a first-run setup flow, and updates the frontend Setup page to work seamlessly within Docker.
 
-The same issue was previously fixed for `crypto.randomUUID` but missed for `crypto.subtle.digest`.
+## What Changes
 
-## Plan
+### 1. Create `lifeos/docker/backend/docker-entrypoint.sh`
+A bash entrypoint script (similar to `docker-ampnm/docker-entrypoint.sh`) that:
+- Prints a branded LifeOS startup banner
+- Checks for `APP_LICENSE_KEY` environment variable and reports status
+- Verifies critical file integrity (`server.js`, `package.json`)
+- Sets secure file permissions
+- Launches the Node.js backend server
 
-**Edit `lifeos/src/lib/licenseConfig.ts`**:
+### 2. Update `lifeos/docker/backend/Dockerfile`
+- Copy the new entrypoint script into the container
+- Make it executable
+- Set it as the `ENTRYPOINT` instead of using bare `CMD`
 
-1. Add a fallback hash function that works without `crypto.subtle` -- use a simple string hash (djb2 or similar) when `crypto.subtle` is unavailable. This is only a client-side integrity check (not a security boundary, as noted in the existing comments), so a simpler hash is acceptable.
+### 3. Enhance `lifeos/docker/backend/server.js` -- First-Run Setup Gate
+Add a setup-detection route and enforce the setup flow:
+- New `GET /api/setup/status` returns `{ needsSetup: true }` when no admin user has been configured via the wizard (checks `app_settings.setup_complete`)
+- New `POST /api/setup/admin` endpoint accepts admin email, password, and name -- creates the admin account and marks setup as started (but not complete until license is configured)
+- Modify `POST /api/license/setup` to mark `setup_complete = true` only after successful license activation
+- Update `seedDefaultAdmin()` to skip seeding if an admin was already created through the wizard (so the Docker user's chosen credentials take priority)
+- Add a setup-enforcement middleware: if `setup_complete` is false, block all routes except `/api/setup/*`, `/api/license/*`, and `/api/auth/*`
 
-2. Update `computeIntegrity` (lines 110-126) to check `if (typeof crypto !== 'undefined' && crypto.subtle)` before using `crypto.subtle.digest`, falling back to the simple hash otherwise.
+### 4. Update `lifeos/src/pages/Setup.tsx` -- Docker-Aware Flow
+Adjust the existing 6-step wizard to detect Docker mode and simplify:
+- On mount, call `GET /api/setup/status` to check if setup is needed
+- If running in Docker (auto-detected via environment presets), skip the "environment" and "database" steps (Docker Compose pre-configures the database)
+- Show only: Welcome -> Admin Account -> License Key -> Complete
+- The Admin step calls `POST /api/setup/admin` with the user's chosen credentials
+- The License step works as it does now, calling `POST /api/license/setup`
+- On completion, redirect to the login page with the new admin credentials
 
-This is a one-file, targeted fix that matches the pattern already used for `crypto.randomUUID` on line 91.
+### 5. Update `lifeos/docker-compose.yml`
+- Add `APP_LICENSE_KEY` environment variable placeholder (like AMPNM)
+- Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` optional env vars for headless setup
+- Add a comment block explaining the first-run setup wizard
+
+## Technical Details
+
+```text
+Docker Start Flow:
++----------------------------+
+| docker-compose up          |
++----------------------------+
+           |
+           v
++----------------------------+
+| docker-entrypoint.sh       |
+| - Print banner             |
+| - Check APP_LICENSE_KEY    |
+| - Verify files             |
+| - Start node server.js     |
++----------------------------+
+           |
+           v
++----------------------------+
+| server.js starts           |
+| - Connect to PostgreSQL    |
+| - Ensure schema exists     |
+| - Check setup_complete     |
+| - If false: enforce setup  |
++----------------------------+
+           |
+           v
++----------------------------+
+| User visits http://...     |
+| Frontend detects Docker    |
+| Shows: Admin -> License    |
++----------------------------+
+```
+
+### Files to Create
+- `lifeos/docker/backend/docker-entrypoint.sh` -- Startup script with banner, checks, and server launch
+
+### Files to Modify
+- `lifeos/docker/backend/Dockerfile` -- Add entrypoint script, set ENTRYPOINT
+- `lifeos/docker/backend/server.js` -- Add setup gate, admin creation endpoint, skip default seed when wizard-configured
+- `lifeos/src/pages/Setup.tsx` -- Docker-aware simplified flow (Admin + License only)
+- `lifeos/docker-compose.yml` -- Add env var placeholders and comments
 
