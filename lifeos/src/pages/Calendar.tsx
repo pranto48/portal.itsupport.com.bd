@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, subDays, isToday, parseISO } from 'date-fns';
+import { ReportActions } from '@/components/shared/ReportActions';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckSquare, Target, Heart, Plus, Clock, AlertCircle, Repeat } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -212,37 +213,52 @@ export default function Calendar() {
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <CalendarIcon className="h-6 w-6" />
+          <CalendarIcon className="h-5 w-5 md:h-6 md:w-6" />
           {language === 'bn' ? 'ক্যালেন্ডার' : 'Calendar'}
         </h1>
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList>
-            <TabsTrigger value="month">{language === 'bn' ? 'মাস' : 'Month'}</TabsTrigger>
-            <TabsTrigger value="week">{language === 'bn' ? 'সপ্তাহ' : 'Week'}</TabsTrigger>
-            <TabsTrigger value="day">{language === 'bn' ? 'দিন' : 'Day'}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ReportActions
+            variant="compact"
+            headers={['Title', 'Date', 'Type', 'Status/Priority']}
+            rows={events.map(e => [e.title, e.date, e.type, e.priority || e.status || ''])}
+            filename={`lifeos-calendar-${format(currentDate, 'yyyy-MM')}`}
+            title="Calendar Events Report"
+            subtitle={format(currentDate, 'MMMM yyyy')}
+            summaryCards={[
+              { label: 'Total Events', value: events.length },
+              { label: 'Tasks', value: events.filter(e => e.type === 'task').length },
+              { label: 'Goals', value: events.filter(e => e.type === 'goal').length },
+            ]}
+          />
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="month">{language === 'bn' ? 'মাস' : 'Month'}</TabsTrigger>
+              <TabsTrigger value="week">{language === 'bn' ? 'সপ্তাহ' : 'Week'}</TabsTrigger>
+              <TabsTrigger value="day">{language === 'bn' ? 'দিন' : 'Day'}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => navigate('prev')}>
+        <CardHeader className="pb-2 md:pb-4 px-3 md:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate('prev')}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => navigate('next')}>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate('next')}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" onClick={goToToday}>
+              <Button variant="ghost" size="sm" onClick={goToToday}>
                 {language === 'bn' ? 'আজ' : 'Today'}
               </Button>
+              <CardTitle className="text-sm md:text-lg ml-1">{headerText}</CardTitle>
             </div>
-            <CardTitle className="text-lg">{headerText}</CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <Badge variant="outline" className="flex items-center gap-1">
                 <CheckSquare className="h-3 w-3" /> {language === 'bn' ? 'কাজ' : 'Tasks'}
               </Badge>
@@ -281,7 +297,7 @@ export default function Calendar() {
                     ))}
                   </div>
                   {/* Calendar grid */}
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-7 gap-0.5 md:gap-1">
                     {monthDays.map(day => {
                       const dayEvents = getEventsForDate(day);
                       const isCurrentMonth = isSameMonth(day, currentDate);
@@ -292,7 +308,7 @@ export default function Calendar() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDate(day)}
                           className={cn(
-                            'min-h-24 p-1 border border-border rounded-lg cursor-pointer transition-all hover:bg-accent/50',
+                            'min-h-14 md:min-h-24 p-0.5 md:p-1 border border-border rounded-md md:rounded-lg cursor-pointer transition-all hover:bg-accent/50',
                             !isCurrentMonth && 'opacity-40',
                             isToday(day) && 'bg-primary/10 border-primary',
                             isSelected && 'ring-2 ring-primary'
@@ -341,7 +357,7 @@ export default function Calendar() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-2"
                 >
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-7 gap-1 md:gap-2">
                     {weekDays.map(day => {
                       const dayEvents = getEventsForDate(day);
                       const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -351,7 +367,7 @@ export default function Calendar() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDate(day)}
                           className={cn(
-                            'min-h-64 p-2 border border-border rounded-lg cursor-pointer transition-all hover:bg-accent/50',
+                            'min-h-32 md:min-h-64 p-1.5 md:p-2 border border-border rounded-lg cursor-pointer transition-all hover:bg-accent/50',
                             isToday(day) && 'bg-primary/10 border-primary',
                             isSelected && 'ring-2 ring-primary'
                           )}
@@ -508,7 +524,7 @@ export default function Calendar() {
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">

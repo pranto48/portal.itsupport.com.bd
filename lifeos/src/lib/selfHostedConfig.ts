@@ -14,7 +14,11 @@ export function detectMode(): SelfHostedConfig {
   const selfHostedApi = import.meta.env.VITE_SELFHOSTED_API_URL;
 
   // If Supabase env vars are set, non-empty, and valid, use cloud mode
-  if (supabaseUrl.length > 0 && supabaseKey.length > 0 && supabaseUrl.includes('supabase')) {
+  // Docker self-hosted uses a placeholder or localhost URL (no 'supabase' in it)
+  const isCloudUrl = supabaseUrl.length > 0 && supabaseKey.length > 0 
+    && supabaseUrl.includes('supabase') 
+    && !supabaseUrl.includes('__LIFEOS_URL_PLACEHOLDER__');
+  if (isCloudUrl) {
     return {
       mode: 'cloud',
       apiUrl: supabaseUrl,
@@ -44,6 +48,76 @@ export function markSetupComplete() {
 
 export function getApiUrl(): string {
   return detectMode().apiUrl;
+}
+
+// Install a global fetch interceptor that injects the self-hosted JWT token
+// into all Supabase client requests (/rest/v1/, /auth/v1/, /functions/v1/).
+// Without this, the Supabase client sends only the anon key, and the backend
+// cannot identify the user — causing all CRUD operations to fail.
+export function installSelfHostedFetchInterceptor() {
+  if (!isSelfHosted()) return;
+
+  const FLAG = '__lifeos_selfhosted_fetch_interceptor_installed__';
+  if ((window as any)[FLAG]) return;
+  (window as any)[FLAG] = true;
+
+  const originalFetch = window.fetch.bind(window);
+
+  const isProxyPath = (pathname: string) =>
+    pathname.startsWith('/rest/v1/') || pathname.startsWith('/auth/v1/') || pathname.startsWith('/functions/v1/');
+
+  const isLoopbackHost = (hostname: string) =>
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const originalUrl =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as Request).url;
+
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(originalUrl, window.location.origin);
+    } catch {
+      parsed = null;
+    }
+
+    const isProxyRequest = parsed ? isProxyPath(parsed.pathname) : false;
+
+    // If the build injected localhost (default Docker config) but the app is opened
+    // from another host/IP, force requests back to the current app origin.
+    const rewrittenUrl =
+      parsed &&
+      isProxyRequest &&
+      parsed.origin !== window.location.origin &&
+      isLoopbackHost(parsed.hostname)
+        ? `${window.location.origin}${parsed.pathname}${parsed.search}`
+        : originalUrl;
+
+    if (!isProxyRequest) {
+      return originalFetch(input, init);
+    }
+
+    const headers = new Headers(input instanceof Request ? input.headers : undefined);
+    if (init?.headers) {
+      const initHeaders = new Headers(init.headers);
+      initHeaders.forEach((value, key) => headers.set(key, value));
+    }
+
+    const token = localStorage.getItem('lifeos_token');
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (input instanceof Request) {
+      const request = new Request(rewrittenUrl, input);
+      return originalFetch(request, { ...init, headers });
+    }
+
+    return originalFetch(rewrittenUrl, { ...init, headers });
+  };
 }
 
 // Self-hosted API client for local database operations
@@ -140,6 +214,9 @@ export class SelfHostedApi {
     try {
       return await this.request<{ user: any }>('/auth/session');
     } catch {
+      // Token is missing/expired/invalid - clear local auth state.
+      this.token = null;
+      localStorage.removeItem('lifeos_token');
       return null;
     }
   }
@@ -151,6 +228,50 @@ export class SelfHostedApi {
       this.token = null;
       localStorage.removeItem('lifeos_token');
     }
+  }
+
+  // --- Data CRUD methods for backup/restore ---
+
+  async selectAll(table: string): Promise<any[]> {
+    const result = await this.request<{ data: any[] }>(`/data/${table}`);
+    return result.data || [];
+  }
+
+  async insertBatch(table: string, rows: any[], batchSize = 500): Promise<number> {
+    let total = 0;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const result = await this.request<{ inserted: number }>(`/data/${table}`, {
+        method: 'POST',
+        body: JSON.stringify({ rows: batch }),
+      });
+      total += result.inserted || 0;
+    }
+    return total;
+  }
+
+  async upsertBatch(table: string, rows: any[], batchSize = 500): Promise<number> {
+    let total = 0;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const result = await this.request<{ upserted: number }>(`/data/${table}/upsert`, {
+        method: 'POST',
+        body: JSON.stringify({ rows: batch }),
+      });
+      total += result.upserted || 0;
+    }
+    return total;
+  }
+
+  async deleteAll(table: string): Promise<void> {
+    await this.request(`/data/${table}`, { method: 'DELETE' });
+  }
+
+  async updateWhere(table: string, updates: Record<string, any>, filters?: Record<string, any>): Promise<void> {
+    await this.request(`/data/${table}/update`, {
+      method: 'POST',
+      body: JSON.stringify({ updates, filters }),
+    });
   }
 }
 

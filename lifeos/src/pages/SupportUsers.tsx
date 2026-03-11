@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Building2, Users, Briefcase, Plus, Pencil, Trash2, Monitor, Globe, Phone, Mail, User, Search, X, Download, Upload, Printer, BarChart3, History, ListTodo, Eye, CheckSquare, Clock, AlertCircle, HardDrive, Flag } from 'lucide-react';
+import { Building2, Users, Briefcase, Plus, Pencil, Trash2, Monitor, Globe, Phone, Mail, User, Search, X, Download, Upload, BarChart3, History, ListTodo, Eye, CheckSquare, Clock, AlertCircle, HardDrive, Flag, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,10 @@ import { DeviceManagement, DeviceEntry } from '@/components/support/DeviceManage
 import { UserDeviceAssignment } from '@/components/support/UserDeviceAssignment';
 import { useDeviceInventory } from '@/hooks/useDeviceInventory';
 import { useAuth } from '@/contexts/AuthContext';
+import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
+import { ReportActions } from '@/components/shared/ReportActions';
+import { useCustomFormFields } from '@/hooks/useCustomFormFields';
+import { CustomFieldsFilter, filterByCustomFields } from '@/components/shared/CustomFieldsFilter';
 
 interface SupportUserTask {
   id: string;
@@ -62,6 +66,9 @@ export default function SupportUsers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUnit, setFilterUnit] = useState<string>('all');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [filterExtension, setFilterExtension] = useState<string>('all');
+  const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, any>>({});
+  const { fields: supportUserCustomFields } = useCustomFormFields('support_user');
 
   // Dialog states
   const [unitDialog, setUnitDialog] = useState<{ open: boolean; editing: SupportUnit | null }>({ open: false, editing: null });
@@ -217,16 +224,20 @@ export default function SupportUsers() {
     loadUserTasks(user.id);
   };
 
+  // Get unique extension numbers for filter
+  const uniqueExtensions = Array.from(new Set(supportUsers.map(u => u.extension_number).filter(Boolean))).sort() as string[];
+
   // Filter support users based on search and filters
   const filteredSupportUsers = supportUsers.filter(user => {
-    // Search filter - now includes device_info and ip_address
+    // Search filter - now includes device_info, ip_address, and extension_number
     const query = searchQuery.toLowerCase();
     const matchesSearch = !query || 
       user.name.toLowerCase().includes(query) ||
       (user.email?.toLowerCase().includes(query)) ||
       (user.designation?.toLowerCase().includes(query)) ||
       (user.device_info?.toLowerCase().includes(query)) ||
-      (user.ip_address?.toLowerCase().includes(query));
+      (user.ip_address?.toLowerCase().includes(query)) ||
+      (user.extension_number?.toLowerCase().includes(query));
 
     if (!matchesSearch) return false;
 
@@ -239,6 +250,25 @@ export default function SupportUsers() {
     // Department filter
     if (filterDepartment !== 'all') {
       if (user.department_id !== filterDepartment) return false;
+    }
+
+    // Extension number filter
+    if (filterExtension !== 'all') {
+      if (user.extension_number !== filterExtension) return false;
+    }
+
+    // Custom field filters
+    if (Object.keys(customFieldFilters).length > 0) {
+      const cf: Record<string, any> = (user as any).custom_fields || {};
+      const matches = Object.entries(customFieldFilters).every(([key, value]) => {
+        const fieldValue = cf[key];
+        if (typeof value === 'boolean') return fieldValue === value;
+        if (typeof value === 'string') {
+          return String(fieldValue || '').toLowerCase().includes(value.toLowerCase());
+        }
+        return fieldValue === value;
+      });
+      if (!matches) return false;
     }
 
     return true;
@@ -511,174 +541,25 @@ export default function SupportUsers() {
   // Get department name for a user
   const getDeptName = (deptId: string) => departments.find(d => d.id === deptId)?.name || 'Unknown';
 
-  // Export functions
-  const exportToCSV = () => {
-    const headers = ['Name', 'Email', 'Phone', 'Designation', 'Unit', 'Department', 'Device Info', 'IP Address', 'Status', 'Notes'];
-    const rows = filteredSupportUsers.map(user => {
-      const dept = departments.find(d => d.id === user.department_id);
-      const unit = dept ? units.find(u => u.id === dept.unit_id) : null;
-      return [
-        user.name,
-        user.email || '',
-        user.phone || '',
-        user.designation || '',
-        unit?.name || '',
-        dept?.name || '',
-        user.device_info || '',
-        user.ip_address || '',
-        user.is_active ? 'Active' : 'Inactive',
-        user.notes || '',
-      ];
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `support_users_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    toast.success(language === 'bn' ? 'CSV ডাউনলোড হয়েছে' : 'CSV downloaded');
-  };
-
-  const exportToExcel = () => {
-    // Create Excel-compatible XML
-    const headers = ['Name', 'Email', 'Phone', 'Designation', 'Unit', 'Department', 'Device Info', 'IP Address', 'Status', 'Notes'];
-    const rows = filteredSupportUsers.map(user => {
-      const dept = departments.find(d => d.id === user.department_id);
-      const unit = dept ? units.find(u => u.id === dept.unit_id) : null;
-      return [
-        user.name,
-        user.email || '',
-        user.phone || '',
-        user.designation || '',
-        unit?.name || '',
-        dept?.name || '',
-        user.device_info || '',
-        user.ip_address || '',
-        user.is_active ? 'Active' : 'Inactive',
-        user.notes || '',
-      ];
-    });
-
-    let excelContent = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Worksheet ss:Name="Support Users">
-    <Table>
-      <Row>
-        ${headers.map(h => `<Cell><Data ss:Type="String">${h}</Data></Cell>`).join('')}
-      </Row>
-      ${rows.map(row => `
-      <Row>
-        ${row.map(cell => `<Cell><Data ss:Type="String">${(cell || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>`).join('')}
-      </Row>`).join('')}
-    </Table>
-  </Worksheet>
-</Workbook>`;
-
-    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `support_users_${new Date().toISOString().split('T')[0]}.xls`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    toast.success(language === 'bn' ? 'Excel ডাউনলোড হয়েছে' : 'Excel downloaded');
-  };
-
-  // Print function
-  const handlePrint = () => {
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Support Users Report</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { text-align: center; margin-bottom: 10px; font-size: 24px; }
-          .date { text-align: center; color: #666; margin-bottom: 20px; font-size: 12px; }
-          .filters { text-align: center; color: #666; margin-bottom: 20px; font-size: 11px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-          th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; }
-          th { background-color: #f0f0f0; font-weight: bold; }
-          tr:nth-child(even) { background-color: #f9f9f9; }
-          .inactive { color: #999; }
-          .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
-          @media print {
-            body { padding: 0; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; }
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${language === 'bn' ? 'সাপোর্ট ইউজার রিপোর্ট' : 'Support Users Report'}</h1>
-        <p class="date">${language === 'bn' ? 'তারিখ' : 'Generated on'}: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
-        ${(filterUnit !== 'all' || filterDepartment !== 'all' || searchQuery) ? `
-        <p class="filters">
-          ${language === 'bn' ? 'ফিল্টার' : 'Filters'}: 
-          ${filterUnit !== 'all' ? `Unit: ${units.find(u => u.id === filterUnit)?.name || 'Unknown'}` : ''}
-          ${filterDepartment !== 'all' ? ` | Department: ${departments.find(d => d.id === filterDepartment)?.name || 'Unknown'}` : ''}
-          ${searchQuery ? ` | Search: "${searchQuery}"` : ''}
-        </p>
-        ` : ''}
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>${language === 'bn' ? 'নাম' : 'Name'}</th>
-              <th>${language === 'bn' ? 'পদবী' : 'Designation'}</th>
-              <th>${language === 'bn' ? 'ইউনিট' : 'Unit'}</th>
-              <th>${language === 'bn' ? 'বিভাগ' : 'Department'}</th>
-              <th>${language === 'bn' ? 'ইমেইল' : 'Email'}</th>
-              <th>${language === 'bn' ? 'ফোন' : 'Phone'}</th>
-              <th>${language === 'bn' ? 'ডিভাইস' : 'Device'}</th>
-              <th>IP</th>
-              <th>${language === 'bn' ? 'স্ট্যাটাস' : 'Status'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filteredSupportUsers.map((user, idx) => {
-              const dept = departments.find(d => d.id === user.department_id);
-              const unit = dept ? units.find(u => u.id === dept.unit_id) : null;
-              return `
-                <tr class="${!user.is_active ? 'inactive' : ''}">
-                  <td>${idx + 1}</td>
-                  <td>${user.name}</td>
-                  <td>${user.designation || '-'}</td>
-                  <td>${unit?.name || '-'}</td>
-                  <td>${dept?.name || '-'}</td>
-                  <td>${user.email || '-'}</td>
-                  <td>${user.phone || '-'}</td>
-                  <td>${user.device_info || '-'}</td>
-                  <td>${user.ip_address || '-'}</td>
-                  <td>${user.is_active ? (language === 'bn' ? 'সক্রিয়' : 'Active') : (language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive')}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-        <p class="footer">${language === 'bn' ? 'মোট' : 'Total'}: ${filteredSupportUsers.length} ${language === 'bn' ? 'জন ইউজার' : 'users'}</p>
-      </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
-    }
-  };
+  // Report data for shared ReportActions
+  const reportHeaders = ['Name', 'Email', 'Phone', 'Designation', 'Unit', 'Department', 'Extension Number', 'Device Info', 'IP Address', 'Status', 'Notes'];
+  const reportRows = filteredSupportUsers.map(user => {
+    const dept = departments.find(d => d.id === user.department_id);
+    const unit = dept ? units.find(u => u.id === dept.unit_id) : null;
+    return [
+      user.name,
+      user.email || '',
+      user.phone || '',
+      user.designation || '',
+      unit?.name || '',
+      dept?.name || '',
+      user.extension_number || '',
+      user.device_info || '',
+      user.ip_address || '',
+      user.is_active ? 'Active' : 'Inactive',
+      user.notes || '',
+    ];
+  });
 
   // CSV Import functions
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -773,6 +654,7 @@ export default function SupportUsers() {
           designation: row.designation?.trim() || null,
           device_info: row.device_info?.trim() || row['device info']?.trim() || null,
           ip_address: row.ip_address?.trim() || row['ip address']?.trim() || null,
+          extension_number: row.extension_number?.trim() || row['extension number']?.trim() || null,
           notes: row.notes?.trim() || null,
           department_id: row._department_id,
           is_active: row.status?.toLowerCase() !== 'inactive',
@@ -797,8 +679,8 @@ export default function SupportUsers() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['Name', 'Email', 'Phone', 'Designation', 'Department', 'Device Info', 'IP Address', 'Status', 'Notes'];
-    const exampleRow = ['John Doe', 'john@example.com', '+1234567890', 'Manager', departments[0]?.name || 'IT Support', 'Windows 11 PC', '192.168.1.100', 'Active', 'Example user'];
+    const headers = ['Name', 'Email', 'Phone', 'Designation', 'Department', 'Extension Number', 'Device Info', 'IP Address', 'Status', 'Notes'];
+    const exampleRow = ['John Doe', 'john@example.com', '+1234567890', 'Manager', departments[0]?.name || 'IT Support', '1001', 'Windows 11 PC', '192.168.1.100', 'Active', 'Example user'];
     
     const csvContent = [
       headers.join(','),
@@ -828,6 +710,7 @@ export default function SupportUsers() {
         <h1 className="text-2xl font-bold text-foreground">
           {language === 'bn' ? 'সাপোর্ট ইউজার ম্যানেজমেন্ট' : 'Support User Management'}
         </h1>
+        <DataExportImportButton preset="support_users" />
       </div>
 
       <Tabs defaultValue="users" className="space-y-4">
@@ -905,6 +788,28 @@ export default function SupportUsers() {
                 ))}
               </SelectContent>
             </Select>
+            {uniqueExtensions.length > 0 && (
+              <Select value={filterExtension} onValueChange={setFilterExtension}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder={language === 'bn' ? 'এক্সটেনশন' : 'Extension'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'bn' ? 'সকল এক্সটেনশন' : 'All Extensions'}</SelectItem>
+                  {uniqueExtensions.map(ext => (
+                    <SelectItem key={ext} value={ext}>{ext}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {supportUserCustomFields.length > 0 && (
+              <div className="w-full">
+                <CustomFieldsFilter
+                  fields={supportUserCustomFields}
+                  filterValues={customFieldFilters}
+                  onFilterChange={setCustomFieldFilters}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <input
                 ref={fileInputRef}
@@ -913,23 +818,28 @@ export default function SupportUsers() {
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <Button variant="outline" size="sm" onClick={handlePrint} disabled={filteredSupportUsers.length === 0}>
-                <Printer className="h-4 w-4 mr-2" />
-                {language === 'bn' ? 'প্রিন্ট' : 'Print'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportToCSV} disabled={filteredSupportUsers.length === 0}>
-                <Download className="h-4 w-4 mr-2" />
-                CSV
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportToExcel} disabled={filteredSupportUsers.length === 0}>
-                <Download className="h-4 w-4 mr-2" />
-                Excel
-              </Button>
+              <ReportActions
+                variant="compact"
+                headers={reportHeaders}
+                rows={reportRows}
+                filename={`support-users-${format(new Date(), 'yyyy-MM-dd')}`}
+                title="Support Users Report"
+                subtitle={`${filteredSupportUsers.length} users`}
+                summaryCards={[
+                  { label: 'Total', value: filteredSupportUsers.length },
+                  { label: 'Active', value: filteredSupportUsers.filter(u => u.is_active).length },
+                  { label: 'Inactive', value: filteredSupportUsers.filter(u => !u.is_active).length },
+                ]}
+              />
               {isAdmin && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={departments.length === 0}>
                     <Upload className="h-4 w-4 mr-2" />
-                    {language === 'bn' ? 'ইম্পোর্ট' : 'Import'}
+                    {language === 'bn' ? 'ইম্পোর্ট' : 'Import CSV'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={downloadTemplate}>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    {language === 'bn' ? 'স্যাম্পল CSV' : 'Sample CSV'}
                   </Button>
                   <Button size="sm" onClick={() => openUserDialog()} disabled={departments.length === 0}>
                     <Plus className="h-4 w-4 mr-2" />

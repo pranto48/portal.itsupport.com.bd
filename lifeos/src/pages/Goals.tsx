@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Target, Plus, Pencil, Trash2, MoreVertical, CheckCircle2, Circle, Calendar, TrendingUp, Flag, ArrowRightLeft } from 'lucide-react';
+import { ReportActions } from '@/components/shared/ReportActions';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { FieldVisibility } from '@/components/shared/FieldVisibility';
 
 interface Goal {
   id: string;
@@ -302,6 +304,17 @@ export default function Goals() {
         <h1 className="text-2xl font-bold text-foreground">{t('goals.goalsAndPlans')}</h1>
         
         <div className="flex items-center gap-4">
+          <ReportActions
+            variant="compact"
+            headers={['Title', 'Category', 'Status', 'Target Amount', 'Current Amount', 'Target Date']}
+            rows={goals.map(g => [g.title, g.category || '', g.status || '', String(g.target_amount || ''), String(g.current_amount || ''), g.target_date || ''])}
+            filename={`lifeos-goals-${new Date().toISOString().split('T')[0]}`}
+            title="Goals Report"
+            summaryCards={[
+              { label: 'Active', value: activeGoals.length },
+              { label: 'Total', value: goals.length },
+            ]}
+          />
           <div className="text-right hidden sm:block">
             <p className="text-sm text-muted-foreground">{t('goals.activeGoals')}</p>
             <p className="text-xl font-bold text-primary">{activeGoals.length}</p>
@@ -332,78 +345,88 @@ export default function Goals() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>{t('goals.description')}</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
-                    placeholder={t('goals.descriptionPlaceholder')}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <FieldVisibility entityType="goal" fieldName="description">
                   <div className="space-y-2">
-                    <Label>{t('goals.category')}</Label>
-                    <Select value={formData.category} onValueChange={(v) => setFormData(f => ({ ...f, category: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>{t('goals.status')}</Label>
-                    <Select value={formData.status} onValueChange={(v) => setFormData(f => ({ ...f, status: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {STATUSES.map(s => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{t('goals.targetAmount')} (৳)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.target_amount}
-                      onChange={(e) => setFormData(f => ({ ...f, target_amount: e.target.value }))}
-                      className="font-mono"
-                      placeholder={t('common.optional')}
+                    <Label>{t('goals.description')}</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
+                      placeholder={t('goals.descriptionPlaceholder')}
+                      rows={2}
                     />
                   </div>
+                </FieldVisibility>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FieldVisibility entityType="goal" fieldName="category">
+                    <div className="space-y-2">
+                      <Label>{t('goals.category')}</Label>
+                      <Select value={formData.category} onValueChange={(v) => setFormData(f => ({ ...f, category: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.map(cat => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FieldVisibility>
                   
-                  <div className="space-y-2">
-                    <Label>{t('goals.currentAmount')} (৳)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.current_amount}
-                      onChange={(e) => setFormData(f => ({ ...f, current_amount: e.target.value }))}
-                      className="font-mono"
-                      placeholder="0"
-                    />
-                  </div>
+                  <FieldVisibility entityType="goal" fieldName="status">
+                    <div className="space-y-2">
+                      <Label>{t('goals.status')}</Label>
+                      <Select value={formData.status} onValueChange={(v) => setFormData(f => ({ ...f, status: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map(s => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FieldVisibility>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>{t('goals.targetDate')}</Label>
-                  <Input
-                    type="date"
-                    value={formData.target_date}
-                    onChange={(e) => setFormData(f => ({ ...f, target_date: e.target.value }))}
-                  />
-                </div>
+                <FieldVisibility entityType="goal" fieldName="target_amount">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('goals.targetAmount')} (৳)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.target_amount}
+                        onChange={(e) => setFormData(f => ({ ...f, target_amount: e.target.value }))}
+                        className="font-mono"
+                        placeholder={t('common.optional')}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>{t('goals.currentAmount')} (৳)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.current_amount}
+                        onChange={(e) => setFormData(f => ({ ...f, current_amount: e.target.value }))}
+                        className="font-mono"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </FieldVisibility>
+
+                <FieldVisibility entityType="goal" fieldName="target_date">
+                  <div className="space-y-2">
+                    <Label>{t('goals.targetDate')}</Label>
+                    <Input
+                      type="date"
+                      value={formData.target_date}
+                      onChange={(e) => setFormData(f => ({ ...f, target_date: e.target.value }))}
+                    />
+                  </div>
+                </FieldVisibility>
 
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
                   <div>

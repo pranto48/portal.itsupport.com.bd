@@ -26,7 +26,6 @@ import {
 import { selfHostedApi, markSetupComplete, getApiUrl } from '@/lib/selfHostedConfig';
 import {
   verifyLicenseViaBackend,
-  verifyLicenseWithPortal,
   saveLicenseInfo,
   getPlanFromMaxDevices,
   getInstallationId,
@@ -299,7 +298,7 @@ export default function Setup() {
           installationId: getInstallationId(),
           plan: getPlanFromMaxDevices(result.max_devices || 5),
         };
-        saveLicenseInfo(info);
+        await saveLicenseInfo(info);
         setLicenseInfo(info);
         setLicenseVerified(true);
 
@@ -328,34 +327,7 @@ export default function Setup() {
     }
   };
 
-  const handleSkipLicense = async () => {
-    const freeInfo: LicenseInfo = {
-      licenseKey: 'FREE',
-      status: 'free',
-      maxDevices: 5,
-      expiresAt: null,
-      lastVerified: new Date().toISOString(),
-      installationId: getInstallationId(),
-      plan: 'basic',
-    };
-    saveLicenseInfo(freeInfo);
-    setLicenseInfo(freeInfo);
-
-    // Mark setup complete on backend for Docker mode
-    if (isDockerMode) {
-      try {
-        const apiUrl = getApiUrl();
-        await fetch(`${apiUrl}/license/setup`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ license_key: 'FREE' }),
-        });
-      } catch {}
-      markSetupComplete();
-    }
-
-    setStep('complete');
-  };
+  // handleSkipLicense removed — license is mandatory for all self-hosted installations
 
   // Docker mode: Welcome → Admin → License → Complete
   // Normal mode: Welcome → Environment → Database → Admin → License → Complete
@@ -888,12 +860,12 @@ export default function Setup() {
                     </Button>
                   </div>
 
-                  <button
-                    onClick={handleSkipLicense}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center py-2"
-                  >
-                    Skip — use Free plan (limited to 5 users)
-                  </button>
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    A valid license key is required to use LifeOS.{' '}
+                    <a href={LICENSE_PORTAL_URL + '/products.php'} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      Purchase a license
+                    </a>
+                  </p>
                 </div>
               </motion.div>
             )}

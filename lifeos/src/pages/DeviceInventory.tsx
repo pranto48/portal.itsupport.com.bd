@@ -32,6 +32,9 @@ import { DeviceFilters } from '@/components/device/DeviceFilters';
 import { SupplierManager } from '@/components/device/SupplierManager';
 import { DeviceDisposalDialog } from '@/components/device/DeviceDisposalDialog';
 import { AnimatedIcon, LoadingSpinner, PulsingDot } from '@/components/ui/animated-icon';
+import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
+import { ReportActions } from '@/components/shared/ReportActions';
+import { useCustomFormFields } from '@/hooks/useCustomFormFields';
 
 const STATUS_OPTIONS = [
   { value: 'available', label: 'Available', labelBn: 'উপলব্ধ', color: 'bg-green-500/20 text-green-600' },
@@ -81,8 +84,10 @@ export default function DeviceInventoryPage() {
   } = useDeviceInventory();
 
   const { supportUsers, departments, units } = useSupportData();
+  const { fields: deviceCustomFields } = useCustomFormFields('device_inventory');
 
-  // Search and filter state
+  // Custom field filter state
+  const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, any>>({});
   const [filters, setFilters] = useState({
     searchQuery: '',
     category: 'all',
@@ -264,9 +269,23 @@ export default function DeviceInventoryPage() {
         if (!user || user.department_id !== filters.department) return false;
       }
 
+      // Custom field filters (stored in custom_specs)
+      if (Object.keys(customFieldFilters).length > 0) {
+        const specs: Record<string, any> = device.custom_specs || {};
+        const matches = Object.entries(customFieldFilters).every(([key, value]) => {
+          const fieldValue = specs[key];
+          if (typeof value === 'boolean') return String(fieldValue) === String(value);
+          if (typeof value === 'string') {
+            return String(fieldValue || '').toLowerCase().includes(value.toLowerCase());
+          }
+          return fieldValue === value;
+        });
+        if (!matches) return false;
+      }
+
       return true;
     });
-  }, [devices, filters, supportUsers, suppliers]);
+  }, [devices, filters, supportUsers, suppliers, customFieldFilters]);
 
   // Check warranty status
   const getWarrantyStatus = (warrantyDate: string | null) => {
@@ -553,52 +572,37 @@ export default function DeviceInventoryPage() {
     }
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = ['Device Name', 'Device Number', 'Serial Number', 'Category', 'Status', 'Purchase Date', 'Delivery Date', 'Supplier', 'Requisition No', 'BOD No', 'Warranty Date', 'Price', 'Assigned To', 'Unit', 'Department', 'RAM Info', 'Storage Info', 'Processor Info', 'UPS', 'Monitor', 'Webcam', 'Headset', 'Notes'];
-    const rows = filteredDevices.map(device => {
-      const category = categories.find(c => c.id === device.category_id);
-      const supportUser = device.support_user_id ? supportUserMap[device.support_user_id] : null;
-      return [
-        device.device_name,
-        device.device_number || '',
-        device.serial_number || '',
-        category?.name || '',
-        STATUS_OPTIONS.find(s => s.value === device.status)?.label || device.status,
-        device.purchase_date || '',
-        device.delivery_date || '',
-        device.supplier_name || '',
-        device.requisition_number || '',
-        device.bod_number || '',
-        device.warranty_date || '',
-        device.price?.toString() || '',
-        supportUser?.name || '',
-        supportUser?.unit_name || '',
-        supportUser?.department_name || '',
-        device.ram_info || '',
-        device.storage_info || '',
-        (device as any).processor_info || '',
-        device.has_ups ? (device.ups_info || 'Yes') : 'No',
-        device.monitor_info || '',
-        device.webcam_info || '',
-        device.headset_info || '',
-        device.notes || '',
-      ];
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `device_inventory_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    toast.success(language === 'bn' ? 'CSV ডাউনলোড হয়েছে' : 'CSV downloaded');
-  };
+  // Report data for shared ReportActions
+  const reportHeaders = ['Device Name', 'Device Number', 'Serial Number', 'Category', 'Status', 'Purchase Date', 'Delivery Date', 'Supplier', 'Requisition No', 'BOD No', 'Warranty Date', 'Price', 'Assigned To', 'Unit', 'Department', 'RAM', 'Storage', 'Processor', 'UPS', 'Monitor', 'Webcam', 'Headset', 'Notes'];
+  const reportRows = filteredDevices.map(device => {
+    const category = categories.find(c => c.id === device.category_id);
+    const supportUser = device.support_user_id ? supportUserMap[device.support_user_id] : null;
+    return [
+      device.device_name,
+      device.device_number || '',
+      device.serial_number || '',
+      category?.name || '',
+      STATUS_OPTIONS.find(s => s.value === device.status)?.label || device.status,
+      device.purchase_date || '',
+      device.delivery_date || '',
+      device.supplier_name || '',
+      device.requisition_number || '',
+      device.bod_number || '',
+      device.warranty_date || '',
+      device.price?.toString() || '',
+      supportUser?.name || '',
+      supportUser?.unit_name || '',
+      supportUser?.department_name || '',
+      device.ram_info || '',
+      device.storage_info || '',
+      (device as any).processor_info || '',
+      device.has_ups ? (device.ups_info || 'Yes') : 'No',
+      device.monitor_info || '',
+      device.webcam_info || '',
+      device.headset_info || '',
+      device.notes || '',
+    ];
+  });
 
   // Stats
   const stats = {
@@ -652,39 +656,50 @@ export default function DeviceInventoryPage() {
             {language === 'bn' ? 'আপনার সকল ডিভাইস পরিচালনা করুন' : 'Manage all your devices'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button variant="outline" size="sm" onClick={exportToCSV} className="hover-lift">
-              <Download className="h-4 w-4 mr-1 icon-hover-bounce" />
-              <span className="hidden sm:inline">{language === 'bn' ? 'রপ্তানি' : 'Export'}</span>
-            </Button>
-          </motion.div>
+        <div className="flex gap-2 flex-wrap">
+          <DataExportImportButton preset="devices" />
+          <ReportActions
+            variant="compact"
+            headers={reportHeaders}
+            rows={reportRows}
+            filename={`device-inventory-${format(new Date(), 'yyyy-MM-dd')}`}
+            title="Device Inventory Report"
+            subtitle={`${filteredDevices.length} devices`}
+            summaryCards={[
+              { label: 'Total', value: stats.total },
+              { label: 'Available', value: stats.available },
+              { label: 'Assigned', value: stats.assigned },
+              { label: 'Maintenance', value: stats.maintenance },
+            ]}
+          />
           {isAdmin && (
             <>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button variant="outline" size="sm" onClick={() => setBulkAssignDialog(true)} className="hover-lift">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">{language === 'bn' ? 'ব্যাচ বরাদ্দ' : 'Bulk Assign'}</span>
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button variant="outline" size="sm" onClick={() => setSupplierDialog(true)} className="hover-lift">
-                  <Truck className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">{language === 'bn' ? 'সাপ্লায়ার' : 'Supplier'}</span>
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button variant="outline" size="sm" onClick={() => openCategoryDialog()} className="hover-lift">
-                  <Tag className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</span>
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="sm" onClick={() => openDeviceDialog()} className="hover-glow">
-                  <Plus className="h-4 w-4 mr-1" />
-                  {language === 'bn' ? 'ডিভাইস যোগ' : 'Add Device'}
-                </Button>
-              </motion.div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreVertical className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">{language === 'bn' ? 'পরিচালনা' : 'Manage'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setBulkAssignDialog(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    {language === 'bn' ? 'ব্যাচ বরাদ্দ' : 'Bulk Assign'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSupplierDialog(true)}>
+                    <Truck className="h-4 w-4 mr-2" />
+                    {language === 'bn' ? 'সাপ্লায়ার পরিচালনা' : 'Manage Suppliers'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openCategoryDialog()}>
+                    <Tag className="h-4 w-4 mr-2" />
+                    {language === 'bn' ? 'ক্যাটাগরি পরিচালনা' : 'Manage Categories'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button size="sm" onClick={() => openDeviceDialog()}>
+                <Plus className="h-4 w-4 mr-1" />
+                {language === 'bn' ? 'ডিভাইস যোগ' : 'Add'}
+              </Button>
             </>
           )}
         </div>
@@ -736,6 +751,10 @@ export default function DeviceInventoryPage() {
             supportUsers={supportUsers}
             suppliers={suppliers}
             statusOptions={STATUS_OPTIONS}
+            devices={devices}
+            customFields={deviceCustomFields}
+            customFieldFilters={customFieldFilters}
+            onCustomFieldFiltersChange={setCustomFieldFilters}
           />
         </CardContent>
       </Card>
@@ -847,12 +866,22 @@ export default function DeviceInventoryPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {/* View Section */}
                               <DropdownMenuItem onClick={() => setDetailsDialog({ open: true, device })}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 {language === 'bn' ? 'বিস্তারিত দেখুন' : 'View Details'}
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openServiceDialog(device)}>
+                                <Wrench className="h-4 w-4 mr-2" />
+                                {language === 'bn' ? 'সার্ভিস ইতিহাস' : 'Service History'}
+                              </DropdownMenuItem>
                               {isAdmin && (
                                 <>
+                                  <DropdownMenuSeparator />
+                                  {/* Manage Section */}
+                                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {language === 'bn' ? 'পরিচালনা' : 'Manage'}
+                                  </div>
                                   <DropdownMenuItem onClick={() => openDeviceDialog(device)}>
                                     <Pencil className="h-4 w-4 mr-2" />
                                     {language === 'bn' ? 'সম্পাদনা' : 'Edit'}
@@ -861,15 +890,11 @@ export default function DeviceInventoryPage() {
                                     <User className="h-4 w-4 mr-2" />
                                     {language === 'bn' ? 'দ্রুত বরাদ্দ' : 'Quick Assign'}
                                   </DropdownMenuItem>
-                                </>
-                              )}
-                              <DropdownMenuItem onClick={() => openServiceDialog(device)}>
-                                <Wrench className="h-4 w-4 mr-2" />
-                                {language === 'bn' ? 'সার্ভিস ইতিহাস' : 'Service History'}
-                              </DropdownMenuItem>
-                              {isAdmin && (
-                                <>
                                   <DropdownMenuSeparator />
+                                  {/* Danger Section */}
+                                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                    {language === 'bn' ? 'বিপজ্জনক' : 'Danger'}
+                                  </div>
                                   <DropdownMenuItem 
                                     onClick={() => setDisposalDialog({ open: true, device })}
                                     className="text-orange-600 focus:text-orange-600"
@@ -911,244 +936,267 @@ export default function DeviceInventoryPage() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Device Name */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'ডিভাইসের নাম' : 'Device Name'} *</Label>
-              <Input
-                value={deviceForm.device_name}
-                onChange={(e) => setDeviceForm({ ...deviceForm, device_name: e.target.value })}
-                placeholder={language === 'bn' ? 'ল্যাপটপ HP ProBook 450' : 'Laptop HP ProBook 450'}
-                className="text-sm"
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="w-full grid grid-cols-4 mb-4">
+              <TabsTrigger value="basic" className="text-xs">
+                {language === 'bn' ? 'মৌলিক তথ্য' : 'Basic Info'}
+              </TabsTrigger>
+              <TabsTrigger value="purchase" className="text-xs">
+                {language === 'bn' ? 'ক্রয় তথ্য' : 'Purchase'}
+              </TabsTrigger>
+              <TabsTrigger value="assignment" className="text-xs">
+                {language === 'bn' ? 'বরাদ্দ' : 'Assignment'}
+              </TabsTrigger>
+              <TabsTrigger value="specs" className="text-xs">
+                {language === 'bn' ? 'স্পেসিফিকেশন' : 'Specs'}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Basic Info Tab */}
+            <TabsContent value="basic" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'ডিভাইসের নাম' : 'Device Name'} *</Label>
+                  <Input
+                    value={deviceForm.device_name}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, device_name: e.target.value })}
+                    placeholder={language === 'bn' ? 'ল্যাপটপ HP ProBook 450' : 'Laptop HP ProBook 450'}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">
+                    {language === 'bn' ? 'ডিভাইস নম্বর' : 'Device Number'}
+                    <span className="text-muted-foreground ml-1">
+                      ({language === 'bn' ? 'QR লিঙ্কের জন্য আবশ্যক' : 'Required for QR link'})
+                    </span>
+                  </Label>
+                  <Input
+                    value={deviceForm.device_number}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, device_number: e.target.value.toUpperCase() })}
+                    placeholder={language === 'bn' ? 'DEV-001' : 'DEV-001'}
+                    className={`text-sm font-mono ${
+                      deviceForm.device_number.trim() && 
+                      devices.some(d => 
+                        d.device_number?.toLowerCase() === deviceForm.device_number.trim().toLowerCase() &&
+                        d.id !== deviceDialog.editing?.id
+                      ) ? 'border-destructive focus-visible:ring-destructive' : ''
+                    }`}
+                  />
+                  {deviceForm.device_number.trim() && 
+                    devices.some(d => 
+                      d.device_number?.toLowerCase() === deviceForm.device_number.trim().toLowerCase() &&
+                      d.id !== deviceDialog.editing?.id
+                    ) && (
+                    <p className="text-xs text-destructive">
+                      {language === 'bn' ? 'এই নম্বর ইতিমধ্যে ব্যবহৃত' : 'This number is already in use'}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'সিরিয়াল নম্বর' : 'Serial Number'}</Label>
+                  <Input
+                    value={deviceForm.serial_number}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, serial_number: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</Label>
+                  <Select value={deviceForm.category_id} onValueChange={(v) => setDeviceForm({ ...deviceForm, category_id: v })}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder={language === 'bn' ? 'ক্যাটাগরি নির্বাচন করুন' : 'Select category'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'স্ট্যাটাস' : 'Status'}</Label>
+                  <Select value={deviceForm.status} onValueChange={(v) => setDeviceForm({ ...deviceForm, status: v })}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {language === 'bn' ? status.labelBn : status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-xs">{language === 'bn' ? 'নোট' : 'Notes'}</Label>
+                  <Textarea
+                    value={deviceForm.notes}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, notes: e.target.value })}
+                    className="text-sm"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Purchase Tab */}
+            <TabsContent value="purchase" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'ক্রয়ের তারিখ' : 'Purchase Date'}</Label>
+                  <Input
+                    type="date"
+                    value={deviceForm.purchase_date}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, purchase_date: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'ডেলিভারি তারিখ' : 'Delivery Date'}</Label>
+                  <Input
+                    type="date"
+                    value={deviceForm.delivery_date}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, delivery_date: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'সরবরাহকারী' : 'Supplier'}</Label>
+                  <Select
+                    value={deviceForm.supplier_id || "none"}
+                    onValueChange={(value) => setDeviceForm({ ...deviceForm, supplier_id: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder={language === 'bn' ? 'সরবরাহকারী নির্বাচন করুন' : 'Select supplier'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {language === 'bn' ? 'কোনো সরবরাহকারী নেই' : 'No supplier'}
+                      </SelectItem>
+                      {suppliers.filter(s => s.is_active).map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'মূল্য (৳)' : 'Price (৳)'}</Label>
+                  <Input
+                    type="number"
+                    value={deviceForm.price}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, price: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'রিকুইজিশন নম্বর' : 'Requisition Number'}</Label>
+                  <Input
+                    value={deviceForm.requisition_number}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, requisition_number: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'BOD নম্বর' : 'BOD Number'}</Label>
+                  <Input
+                    value={deviceForm.bod_number}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, bod_number: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{language === 'bn' ? 'ওয়ারেন্টি তারিখ' : 'Warranty Date'}</Label>
+                  <Input
+                    type="date"
+                    value={deviceForm.warranty_date}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, warranty_date: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-xs">{language === 'bn' ? 'বিল বিবরণ' : 'Bill Details'}</Label>
+                  <Textarea
+                    value={deviceForm.bill_details}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, bill_details: e.target.value })}
+                    placeholder={language === 'bn' ? 'বিল নম্বর, তারিখ ইত্যাদি' : 'Bill number, date, etc.'}
+                    className="text-sm"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Assignment Tab */}
+            <TabsContent value="assignment" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CascadingAssignment
+                  units={units}
+                  departments={departments}
+                  supportUsers={supportUsers}
+                  selectedUserId={deviceForm.support_user_id}
+                  onUserChange={(userId) => setDeviceForm({ ...deviceForm, support_user_id: userId })}
+                />
+
+                <div className="space-y-2">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {language === 'bn' ? 'ইউনিট লোকেশন (ফিজিক্যাল)' : 'Unit Location (Physical)'}
+                  </Label>
+                  <Select value={deviceForm.unit_id || "none"} onValueChange={(v) => setDeviceForm({ ...deviceForm, unit_id: v === "none" ? "" : v })}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder={language === 'bn' ? 'ইউনিট নির্বাচন করুন' : 'Select unit'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{language === 'bn' ? 'নির্বাচন করুন' : 'Select'}</SelectItem>
+                      {units.map(unit => (
+                        <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Specs Tab */}
+            <TabsContent value="specs" className="space-y-4">
+              <DeviceSpecsForm
+                categoryName={categories.find(c => c.id === deviceForm.category_id)?.name || null}
+                specs={{
+                  ram_info: deviceForm.ram_info,
+                  storage_info: deviceForm.storage_info,
+                  processor_info: deviceForm.processor_info,
+                  has_ups: deviceForm.has_ups,
+                  ups_info: deviceForm.ups_info,
+                  monitor_info: deviceForm.monitor_info,
+                  webcam_info: deviceForm.webcam_info,
+                  headset_info: deviceForm.headset_info,
+                  custom_specs: deviceForm.custom_specs,
+                }}
+                onChange={(specs) => setDeviceForm({ ...deviceForm, ...specs })}
               />
-            </div>
-
-            {/* Device Number */}
-            <div className="space-y-2">
-               <Label className="text-xs">
-                 {language === 'bn' ? 'ডিভাইস নম্বর' : 'Device Number'}
-                 <span className="text-muted-foreground ml-1">
-                   ({language === 'bn' ? 'QR লিঙ্কের জন্য আবশ্যক' : 'Required for QR link'})
-                 </span>
-               </Label>
-              <Input
-                value={deviceForm.device_number}
-                 onChange={(e) => setDeviceForm({ ...deviceForm, device_number: e.target.value.toUpperCase() })}
-                placeholder={language === 'bn' ? 'DEV-001' : 'DEV-001'}
-                 className={`text-sm font-mono ${
-                   deviceForm.device_number.trim() && 
-                   devices.some(d => 
-                     d.device_number?.toLowerCase() === deviceForm.device_number.trim().toLowerCase() &&
-                     d.id !== deviceDialog.editing?.id
-                   ) ? 'border-destructive focus-visible:ring-destructive' : ''
-                 }`}
-              />
-               {deviceForm.device_number.trim() && 
-                devices.some(d => 
-                  d.device_number?.toLowerCase() === deviceForm.device_number.trim().toLowerCase() &&
-                  d.id !== deviceDialog.editing?.id
-                ) && (
-                 <p className="text-xs text-destructive">
-                   {language === 'bn' ? 'এই নম্বর ইতিমধ্যে ব্যবহৃত' : 'This number is already in use'}
-                 </p>
-               )}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'সিরিয়াল নম্বর' : 'Serial Number'}</Label>
-              <Input
-                value={deviceForm.serial_number}
-                onChange={(e) => setDeviceForm({ ...deviceForm, serial_number: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Category */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</Label>
-              <Select value={deviceForm.category_id} onValueChange={(v) => setDeviceForm({ ...deviceForm, category_id: v })}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder={language === 'bn' ? 'ক্যাটাগরি নির্বাচন করুন' : 'Select category'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'স্ট্যাটাস' : 'Status'}</Label>
-              <Select value={deviceForm.status} onValueChange={(v) => setDeviceForm({ ...deviceForm, status: v })}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map(status => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {language === 'bn' ? status.labelBn : status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Cascading Assignment: Unit > Department > User */}
-            <CascadingAssignment
-              units={units}
-              departments={departments}
-              supportUsers={supportUsers}
-              selectedUserId={deviceForm.support_user_id}
-              onUserChange={(userId) => setDeviceForm({ ...deviceForm, support_user_id: userId })}
-            />
-
-            {/* Unit Location (Physical Location) */}
-            <div className="space-y-2">
-              <Label className="text-xs flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" />
-                {language === 'bn' ? 'ইউনিট লোকেশন (ফিজিক্যাল)' : 'Unit Location (Physical)'}
-              </Label>
-              <Select value={deviceForm.unit_id || "none"} onValueChange={(v) => setDeviceForm({ ...deviceForm, unit_id: v === "none" ? "" : v })}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder={language === 'bn' ? 'ইউনিট নির্বাচন করুন' : 'Select unit'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{language === 'bn' ? 'নির্বাচন করুন' : 'Select'}</SelectItem>
-                  {units.map(unit => (
-                    <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Purchase Date */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'ক্রয়ের তারিখ' : 'Purchase Date'}</Label>
-              <Input
-                type="date"
-                value={deviceForm.purchase_date}
-                onChange={(e) => setDeviceForm({ ...deviceForm, purchase_date: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Delivery Date */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'ডেলিভারি তারিখ' : 'Delivery Date'}</Label>
-              <Input
-                type="date"
-                value={deviceForm.delivery_date}
-                onChange={(e) => setDeviceForm({ ...deviceForm, delivery_date: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Supplier */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'সরবরাহকারী' : 'Supplier'}</Label>
-              <Select
-                value={deviceForm.supplier_id || "none"}
-                onValueChange={(value) => setDeviceForm({ ...deviceForm, supplier_id: value === "none" ? "" : value })}
-              >
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder={language === 'bn' ? 'সরবরাহকারী নির্বাচন করুন' : 'Select supplier'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    {language === 'bn' ? 'কোনো সরবরাহকারী নেই' : 'No supplier'}
-                  </SelectItem>
-                  {suppliers.filter(s => s.is_active).map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Requisition Number */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'রিকুইজিশন নম্বর' : 'Requisition Number'}</Label>
-              <Input
-                value={deviceForm.requisition_number}
-                onChange={(e) => setDeviceForm({ ...deviceForm, requisition_number: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* BOD Number */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'BOD নম্বর' : 'BOD Number'}</Label>
-              <Input
-                value={deviceForm.bod_number}
-                onChange={(e) => setDeviceForm({ ...deviceForm, bod_number: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Warranty Date */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'ওয়ারেন্টি তারিখ' : 'Warranty Date'}</Label>
-              <Input
-                type="date"
-                value={deviceForm.warranty_date}
-                onChange={(e) => setDeviceForm({ ...deviceForm, warranty_date: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Price */}
-            <div className="space-y-2">
-              <Label className="text-xs">{language === 'bn' ? 'মূল্য (৳)' : 'Price (৳)'}</Label>
-              <Input
-                type="number"
-                value={deviceForm.price}
-                onChange={(e) => setDeviceForm({ ...deviceForm, price: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Bill Details */}
-            <div className="space-y-2 md:col-span-2">
-              <Label className="text-xs">{language === 'bn' ? 'বিল বিবরণ' : 'Bill Details'}</Label>
-              <Textarea
-                value={deviceForm.bill_details}
-                onChange={(e) => setDeviceForm({ ...deviceForm, bill_details: e.target.value })}
-                placeholder={language === 'bn' ? 'বিল নম্বর, তারিখ ইত্যাদি' : 'Bill number, date, etc.'}
-                className="text-sm"
-                rows={2}
-              />
-            </div>
-
-            {/* Device Specifications (conditional based on category) */}
-            <DeviceSpecsForm
-              categoryName={categories.find(c => c.id === deviceForm.category_id)?.name || null}
-              specs={{
-                ram_info: deviceForm.ram_info,
-                storage_info: deviceForm.storage_info,
-                processor_info: deviceForm.processor_info,
-                has_ups: deviceForm.has_ups,
-                ups_info: deviceForm.ups_info,
-                monitor_info: deviceForm.monitor_info,
-                webcam_info: deviceForm.webcam_info,
-                headset_info: deviceForm.headset_info,
-                custom_specs: deviceForm.custom_specs,
-              }}
-              onChange={(specs) => setDeviceForm({ ...deviceForm, ...specs })}
-            />
-
-            {/* Notes */}
-            <div className="space-y-2 md:col-span-2">
-              <Label className="text-xs">{language === 'bn' ? 'নোট' : 'Notes'}</Label>
-              <Textarea
-                value={deviceForm.notes}
-                onChange={(e) => setDeviceForm({ ...deviceForm, notes: e.target.value })}
-                className="text-sm"
-                rows={2}
-              />
-            </div>
-          </div>
+              {!categories.find(c => c.id === deviceForm.category_id) && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {language === 'bn' ? 'প্রথমে "মৌলিক তথ্য" ট্যাব থেকে ক্যাটাগরি নির্বাচন করুন' : 'Please select a category from "Basic Info" tab first'}
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeviceDialog({ open: false, editing: null })}>
@@ -1196,27 +1244,107 @@ export default function DeviceInventoryPage() {
               />
             </div>
 
+            {/* Sample Categories */}
+            {categories.length === 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs">{language === 'bn' ? 'নমুনা ক্যাটাগরি যোগ করুন' : 'Add Sample Categories'}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'bn' 
+                    ? 'সাধারণ আইটি ডিভাইস ক্যাটাগরি দ্রুত যোগ করুন। প্রতিটি ক্যাটাগরির জন্য নির্দিষ্ট ফিল্ড স্বয়ংক্রিয়ভাবে দেখাবে।'
+                    : 'Quickly add common IT device categories. Each category will show its specific fields automatically.'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => {
+                    const sampleCategories = [
+                      { name: 'Desktop', description: 'Desktop computers and workstations (RAM, Storage, Processor, Monitor, UPS fields)' },
+                      { name: 'Desktop Clone PC', description: 'Assembled/Clone desktop PCs (RAM, Storage, Processor, Monitor, UPS fields)' },
+                      { name: 'Laptop', description: 'Portable computers and notebooks (RAM, Storage, Processor, Webcam, Headset fields)' },
+                      { name: 'Router', description: 'Network routers and access points (SSID, WiFi Password, Admin IP, LAN/WAN IP fields)' },
+                      { name: 'Switch', description: 'Network switches and hubs (Management IP, VLAN, Subnet, Gateway, Port Count fields)' },
+                      { name: 'Server', description: 'Rack/Tower servers (LAN/WAN IP, iLO/IPMI, OS, RAID Config, Domain fields)' },
+                      { name: 'Printer', description: 'Printers, scanners, and copiers (IP Address, Model, Driver, Toner Type fields)' },
+                      { name: 'UPS', description: 'Uninterruptible power supplies (Capacity VA, Battery Count, Load Info fields)' },
+                      { name: 'CCTV', description: 'Security cameras and DVR/NVR (IP Address, DVR/NVR IP, Channel, Location fields)' },
+                      { name: 'Firewall', description: 'Network firewalls and gateways (SSID, Admin IP, WAN/LAN IP, Firmware fields)' },
+                      { name: 'Access Point', description: 'Wireless access points (SSID, WiFi Password, Admin IP, Firmware fields)' },
+                      { name: 'NAS', description: 'Network attached storage (LAN IP, Admin Username, RAID Config, OS fields)' },
+                      { name: 'Scanner', description: 'Standalone scanners (IP Address, Model, Driver Info fields)' },
+                      { name: 'Monitor', description: 'Standalone display monitors' },
+                      { name: 'Projector', description: 'Projectors and display equipment' },
+                      { name: 'Phone', description: 'IP phones and communication devices' },
+                      { name: 'Tablet', description: 'Tablets and handheld devices' },
+                      { name: 'Other', description: 'Miscellaneous IT equipment' },
+                    ];
+                    const existingNames = categories.map(c => c.name.toLowerCase());
+                    let added = 0;
+                    for (const cat of sampleCategories) {
+                      if (!existingNames.includes(cat.name.toLowerCase())) {
+                        await addCategory(cat.name, cat.description);
+                        added++;
+                      }
+                    }
+                    toast.success(
+                      language === 'bn' 
+                        ? `${added}টি নমুনা ক্যাটাগরি যোগ হয়েছে` 
+                        : `${added} sample categories added`
+                    );
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {language === 'bn' ? '১৮টি নমুনা ক্যাটাগরি যোগ করুন' : 'Add 18 Sample IT Categories'}
+                </Button>
+              </div>
+            )}
+
             {/* Existing Categories */}
             {categories.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs">{language === 'bn' ? 'বিদ্যমান ক্যাটাগরি' : 'Existing Categories'}</Label>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                      <span className="text-sm">{cat.name}</span>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                          setCategoryForm({ name: cat.name, description: cat.description || '' });
-                          setCategoryDialog({ open: true, editing: cat });
-                        }}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteCategory(cat.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {categories.map(cat => {
+                    const typeLabel = (() => {
+                      const lower = cat.name.toLowerCase();
+                      if (['desktop', 'laptop', 'notebook', 'clone', 'workstation', 'all-in-one'].some(k => lower.includes(k))) return '🖥️';
+                      if (['router', 'firewall', 'gateway', 'access point', 'modem', 'wifi'].some(k => lower.includes(k))) return '📡';
+                      if (['switch', 'hub', 'patch'].some(k => lower.includes(k))) return '🔌';
+                      if (['server', 'nas', 'rack'].some(k => lower.includes(k))) return '🖧';
+                      if (['printer', 'scanner', 'copier'].some(k => lower.includes(k))) return '🖨️';
+                      if (['ups', 'power', 'ips', 'stabilizer'].some(k => lower.includes(k))) return '🔋';
+                      if (['cctv', 'camera', 'dvr', 'nvr'].some(k => lower.includes(k))) return '📹';
+                      if (['monitor', 'display'].some(k => lower.includes(k))) return '🖵';
+                      if (['phone'].some(k => lower.includes(k))) return '📞';
+                      if (['projector'].some(k => lower.includes(k))) return '📽️';
+                      if (['tablet'].some(k => lower.includes(k))) return '📱';
+                      return '📦';
+                    })();
+                    return (
+                      <div key={cat.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{typeLabel}</span>
+                          <div>
+                            <span className="text-sm font-medium">{cat.name}</span>
+                            {cat.description && (
+                              <p className="text-[10px] text-muted-foreground line-clamp-1">{cat.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                            setCategoryForm({ name: cat.name, description: cat.description || '' });
+                            setCategoryDialog({ open: true, editing: cat });
+                          }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteCategory(cat.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

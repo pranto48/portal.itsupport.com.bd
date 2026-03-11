@@ -7,13 +7,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { DashboardModeProvider } from "@/contexts/DashboardModeContext";
-import { LicenseGateProvider } from "@/contexts/LicenseContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PersonalPageGuard } from "@/components/layout/PersonalPageGuard";
-import { LicenseGuard } from "@/components/license/LicenseGuard";
 import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { AnimatePresence } from "framer-motion";
@@ -38,6 +37,10 @@ const DeviceInventory = lazy(() => import("./pages/DeviceInventory"));
 const DeviceProfile = lazy(() => import("./pages/DeviceProfile"));
 const SupportTickets = lazy(() => import("./pages/SupportTickets"));
 const SubmitTicket = lazy(() => import("./pages/SubmitTicket"));
+const TimeTracking = lazy(() => import("./pages/TimeTracking"));
+const WorkflowAutomation = lazy(() => import("./pages/WorkflowAutomation"));
+const AiHub = lazy(() => import("./pages/AiHub"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -45,7 +48,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -91,24 +96,28 @@ const AppContent = () => {
           <Routes>
             <Route path="/setup" element={<Setup />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<LicenseGuard><AppLayout><Dashboard /></AppLayout></LicenseGuard>} />
-            <Route path="/tasks" element={<LicenseGuard><AppLayout><Tasks /></AppLayout></LicenseGuard>} />
-            <Route path="/notes" element={<LicenseGuard><AppLayout><Notes /></AppLayout></LicenseGuard>} />
-            <Route path="/habits" element={<LicenseGuard><AppLayout><PersonalPageGuard><Habits /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/family" element={<LicenseGuard><AppLayout><PersonalPageGuard><Family /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/budget" element={<LicenseGuard><AppLayout><PersonalPageGuard><Budget /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/salary" element={<LicenseGuard><AppLayout><PersonalPageGuard><Salary /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/investments" element={<LicenseGuard><AppLayout><PersonalPageGuard><Investments /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/loans" element={<LicenseGuard><AppLayout><PersonalPageGuard><Loans /></PersonalPageGuard></AppLayout></LicenseGuard>} />
-            <Route path="/goals" element={<LicenseGuard><AppLayout><Goals /></AppLayout></LicenseGuard>} />
-            <Route path="/projects" element={<LicenseGuard><AppLayout><Projects /></AppLayout></LicenseGuard>} />
-            <Route path="/calendar" element={<LicenseGuard><AppLayout><Calendar /></AppLayout></LicenseGuard>} />
-            <Route path="/support-users" element={<LicenseGuard><AppLayout><SupportUsers /></AppLayout></LicenseGuard>} />
-            <Route path="/device-inventory" element={<LicenseGuard><AppLayout><DeviceInventory /></AppLayout></LicenseGuard>} />
-            <Route path="/device/:deviceNumber" element={<LicenseGuard><DeviceProfile /></LicenseGuard>} />
-            <Route path="/support-tickets" element={<LicenseGuard><AppLayout><SupportTickets /></AppLayout></LicenseGuard>} />
-            <Route path="/submit-ticket" element={<LicenseGuard><SubmitTicket /></LicenseGuard>} />
-            <Route path="/settings" element={<LicenseGuard><AppLayout><Settings /></AppLayout></LicenseGuard>} />
+            <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+            <Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
+            <Route path="/notes" element={<AppLayout><Notes /></AppLayout>} />
+            <Route path="/habits" element={<AppLayout><PersonalPageGuard><Habits /></PersonalPageGuard></AppLayout>} />
+            <Route path="/family" element={<AppLayout><PersonalPageGuard><Family /></PersonalPageGuard></AppLayout>} />
+            <Route path="/budget" element={<AppLayout><PersonalPageGuard><Budget /></PersonalPageGuard></AppLayout>} />
+            <Route path="/salary" element={<AppLayout><PersonalPageGuard><Salary /></PersonalPageGuard></AppLayout>} />
+            <Route path="/investments" element={<AppLayout><PersonalPageGuard><Investments /></PersonalPageGuard></AppLayout>} />
+            <Route path="/loans" element={<AppLayout><PersonalPageGuard><Loans /></PersonalPageGuard></AppLayout>} />
+            <Route path="/goals" element={<AppLayout><Goals /></AppLayout>} />
+            <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
+            <Route path="/calendar" element={<AppLayout><Calendar /></AppLayout>} />
+            <Route path="/support-users" element={<AppLayout><SupportUsers /></AppLayout>} />
+            <Route path="/device-inventory" element={<AppLayout><DeviceInventory /></AppLayout>} />
+            <Route path="/device/:deviceNumber" element={<DeviceProfile />} />
+            <Route path="/support-tickets" element={<AppLayout><SupportTickets /></AppLayout>} />
+            <Route path="/submit-ticket" element={<SubmitTicket />} />
+            <Route path="/time-tracking" element={<AppLayout><TimeTracking /></AppLayout>} />
+            <Route path="/workflow" element={<AppLayout><WorkflowAutomation /></AppLayout>} />
+            <Route path="/ai-hub" element={<AppLayout><AiHub /></AppLayout>} />
+            <Route path="/analytics" element={<AppLayout><Analytics /></AppLayout>} />
+            <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
@@ -121,20 +130,19 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <LicenseGateProvider>
-          <LanguageProvider>
-            <DashboardModeProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <PWAInstallPrompt />
-                <BrowserRouter>
-                  <AppContent />
-                </BrowserRouter>
-              </TooltipProvider>
-            </DashboardModeProvider>
-          </LanguageProvider>
-        </LicenseGateProvider>
+        <LanguageProvider>
+          <DashboardModeProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <PWAInstallPrompt />
+              <OfflineIndicator />
+              <BrowserRouter>
+                <AppContent />
+              </BrowserRouter>
+            </TooltipProvider>
+          </DashboardModeProvider>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>

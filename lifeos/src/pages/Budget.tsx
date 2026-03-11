@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, Users, Plus, Filter, MoreVertical, Pencil, Trash2, Target, AlertTriangle, Settings, Tag, CreditCard, Banknote, PiggyBank, Receipt, ShoppingCart, ShoppingBag, Utensils, Coffee, Car, Fuel, Home, Lightbulb, Wifi, Phone, Laptop, Gamepad2, Music, Film, Book, GraduationCap, Briefcase, Heart, Activity, Pill, Plane, Train, Bus, Gift, Baby, Dog, Shirt, Scissors, Wrench, Building, DollarSign, HandCoins, Coins, MoreHorizontal, CheckSquare, FolderKanban, FileText, Zap, Link2 } from 'lucide-react';
+import { ReportActions } from '@/components/shared/ReportActions';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { FieldVisibility } from '@/components/shared/FieldVisibility';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface Transaction {
@@ -610,6 +612,22 @@ export default function Budget() {
         <h1 className="text-2xl font-bold text-foreground">{t('budget.title')}</h1>
         
         <div className="flex items-center gap-2 flex-wrap">
+          <ReportActions
+            variant="compact"
+            headers={['Date', 'Type', 'Category', 'Amount', 'Merchant', 'Account', 'Notes']}
+            rows={filteredTransactions.map(t => [
+              t.date, t.type, t.budget_categories?.name || '', String(t.amount),
+              t.merchant || '', t.account || '', ''
+            ])}
+            filename={`lifeos-budget-${new Date().toISOString().split('T')[0]}`}
+            title="Budget Report"
+            subtitle={`${new Date().toLocaleDateString('en', { month: 'long', year: 'numeric' })}`}
+            summaryCards={[
+              { label: 'Income', value: `৳${filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0).toLocaleString()}` },
+              { label: 'Expenses', value: `৳${filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0).toLocaleString()}` },
+              { label: 'Transactions', value: filteredTransactions.length },
+            ]}
+          />
           <Select value={filterMember} onValueChange={setFilterMember}>
             <SelectTrigger className="w-[160px]">
               <Filter className="h-4 w-4 mr-2" />
@@ -816,52 +834,60 @@ export default function Budget() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{t('budget.category')}</Label>
-                    <Select value={formData.category_id || "none"} onValueChange={(v) => setFormData(f => ({ ...f, category_id: v === "none" ? "" : v }))}>
-                      <SelectTrigger><SelectValue placeholder={t('budget.select')} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t('common.none')}</SelectItem>
-                        {filteredCategories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t('budget.date')}</Label>
-                    <Input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData(f => ({ ...f, date: e.target.value }))}
-                    />
-                  </div>
+                  <FieldVisibility entityType="transaction" fieldName="category_id">
+                    <div className="space-y-2">
+                      <Label>{t('budget.category')}</Label>
+                      <Select value={formData.category_id || "none"} onValueChange={(v) => setFormData(f => ({ ...f, category_id: v === "none" ? "" : v }))}>
+                        <SelectTrigger><SelectValue placeholder={t('budget.select')} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t('common.none')}</SelectItem>
+                          {filteredCategories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FieldVisibility>
+                  <FieldVisibility entityType="transaction" fieldName="date">
+                    <div className="space-y-2">
+                      <Label>{t('budget.date')}</Label>
+                      <Input
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData(f => ({ ...f, date: e.target.value }))}
+                      />
+                    </div>
+                  </FieldVisibility>
                 </div>
 
                 {/* Income Source - Only show for income type */}
                 {formData.type === 'income' && (
-                  <div className="space-y-2">
-                    <Label>{t('budget.incomeSource')}</Label>
-                    <Select value={formData.account} onValueChange={(v) => setFormData(f => ({ ...f, account: v }))}>
-                      <SelectTrigger><SelectValue placeholder={t('budget.selectSource')} /></SelectTrigger>
-                      <SelectContent>
-                        {INCOME_SOURCE_KEYS.map(source => (
-                          <SelectItem key={source.value} value={source.value}>{t(source.key as any)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <FieldVisibility entityType="transaction" fieldName="account">
+                    <div className="space-y-2">
+                      <Label>{t('budget.incomeSource')}</Label>
+                      <Select value={formData.account} onValueChange={(v) => setFormData(f => ({ ...f, account: v }))}>
+                        <SelectTrigger><SelectValue placeholder={t('budget.selectSource')} /></SelectTrigger>
+                        <SelectContent>
+                          {INCOME_SOURCE_KEYS.map(source => (
+                            <SelectItem key={source.value} value={source.value}>{t(source.key as any)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FieldVisibility>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{t('budget.description')}</Label>
-                    <Input
-                      value={formData.merchant}
-                      onChange={(e) => setFormData(f => ({ ...f, merchant: e.target.value }))}
-                      placeholder={t('budget.whereWhat')}
-                    />
-                  </div>
+                  <FieldVisibility entityType="transaction" fieldName="merchant">
+                    <div className="space-y-2">
+                      <Label>{t('budget.description')}</Label>
+                      <Input
+                        value={formData.merchant}
+                        onChange={(e) => setFormData(f => ({ ...f, merchant: e.target.value }))}
+                        placeholder={t('budget.whereWhat')}
+                      />
+                    </div>
+                  </FieldVisibility>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />

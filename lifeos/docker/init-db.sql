@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     session_token VARCHAR(255) UNIQUE NOT NULL,
     device_info TEXT,
-    ip_address INET,
+    ip_address TEXT,
     is_revoked BOOLEAN DEFAULT false,
     last_active TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -245,9 +245,9 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default app settings
+-- Insert default app settings (setup_complete=false so setup wizard or seedDefaultAdmin handles first run)
 INSERT INTO public.app_settings (id, setup_complete, db_type) 
-VALUES ('default', true, 'postgresql')
+VALUES ('default', false, 'postgresql')
 ON CONFLICT (id) DO NOTHING;
 
 -- License Settings table (for license verification system)

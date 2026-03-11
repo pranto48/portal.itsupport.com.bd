@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
 import { FileText, Pin, Star, Search, Lock, LockOpen, Plus, X, Eye, EyeOff, Trash2, MoreVertical } from 'lucide-react';
+import { ReportActions } from '@/components/shared/ReportActions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from '@/hooks/use-toast';
 import { encryptContent, decryptContent, validatePassphrase } from '@/lib/encryption';
 import { format } from 'date-fns';
+import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
+import { FieldVisibility } from '@/components/shared/FieldVisibility';
+import { MarkdownEditor } from '@/components/notes/MarkdownEditor';
+import ReactMarkdown from 'react-markdown';
 
 export default function Notes() {
   const { user } = useAuth();
@@ -187,23 +192,38 @@ export default function Notes() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-foreground">{t('notes.title')}</h1>
-        <div className="flex items-center gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
-              placeholder={t('notes.searchNotes')} 
-              className="pl-9 bg-muted/50" 
-            />
-          </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> {t('notes.newNote')}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ReportActions
+            variant="compact"
+            headers={['Title', 'Type', 'Tags', 'Pinned', 'Vault', 'Created']}
+            rows={filtered.map(n => [n.title, n.note_type || '', (n.tags || []).join(', '), n.is_pinned ? 'Yes' : 'No', n.is_vault ? 'Yes' : 'No', n.created_at ? format(new Date(n.created_at), 'yyyy-MM-dd') : ''])}
+            filename={`lifeos-notes-${new Date().toISOString().split('T')[0]}`}
+            title="Notes Report"
+            summaryCards={[
+              { label: 'Total', value: filtered.length },
+              { label: 'Vault', value: filtered.filter(n => n.is_vault).length },
+              { label: 'Pinned', value: filtered.filter(n => n.is_pinned).length },
+            ]}
+          />
+          <DataExportImportButton preset="notes" />
+          <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> {t('notes.newNote')}
           </Button>
         </div>
+      </div>
+
+      {/* Search Bar - Full width on mobile */}
+      <div className="relative w-full sm:w-64">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+          placeholder={t('notes.searchNotes')} 
+          className="pl-9 bg-muted/50" 
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -326,8 +346,15 @@ export default function Notes() {
             </div>
           ) : (
             <div className="space-y-4 py-4">
-              <div className="bg-muted/30 rounded-lg p-4 min-h-[200px] whitespace-pre-wrap text-foreground">
-                {selectedNote?.is_vault ? decryptedContent : selectedNote?.content || t('notes.noContent')}
+              <div className="bg-muted/30 rounded-lg p-4 min-h-[200px] text-foreground">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-foreground
+                  prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground
+                  prose-strong:text-foreground prose-a:text-primary prose-code:text-primary
+                  prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                  prose-pre:bg-muted prose-pre:border prose-pre:border-border
+                  prose-blockquote:border-primary prose-blockquote:text-muted-foreground">
+                  <ReactMarkdown>{selectedNote?.is_vault ? (decryptedContent || '') : (selectedNote?.content || t('notes.noContent'))}</ReactMarkdown>
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <div className="flex gap-1">
@@ -360,25 +387,29 @@ export default function Notes() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>{t('notes.content')}</Label>
-              <Textarea
-                value={newContent}
-                onChange={e => setNewContent(e.target.value)}
-                placeholder={t('notes.writeNote')}
-                className="bg-muted/50 min-h-[150px]"
-              />
-            </div>
+            <FieldVisibility entityType="note" fieldName="content">
+              <div className="space-y-2">
+                <Label>{t('notes.content')}</Label>
+                <MarkdownEditor
+                  value={newContent}
+                  onChange={setNewContent}
+                  placeholder={t('notes.writeNote')}
+                  minHeight="200px"
+                />
+              </div>
+            </FieldVisibility>
 
-            <div className="space-y-2">
-              <Label>{t('notes.tagsComma')}</Label>
-              <Input
-                value={newTags}
-                onChange={e => setNewTags(e.target.value)}
-                placeholder="work, ideas, important"
-                className="bg-muted/50"
-              />
-            </div>
+            <FieldVisibility entityType="note" fieldName="tags">
+              <div className="space-y-2">
+                <Label>{t('notes.tagsComma')}</Label>
+                <Input
+                  value={newTags}
+                  onChange={e => setNewTags(e.target.value)}
+                  placeholder="work, ideas, important"
+                  className="bg-muted/50"
+                />
+              </div>
+            </FieldVisibility>
 
             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
               <div className="flex items-center gap-2">

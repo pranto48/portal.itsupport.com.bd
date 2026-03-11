@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Shield, Users, Key, Loader2, Crown, UserPlus, Trash2, Search, Briefcase, Home, Settings, Calendar, AlertTriangle, Mail, Sparkles } from 'lucide-react';
+import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
+import { Shield, Users, Key, Loader2, Crown, UserPlus, Trash2, Search, Briefcase, Home, Settings, Calendar, AlertTriangle, Mail, Sparkles, FormInput, ToggleLeft, LayoutGrid, Star, Zap, CheckCircle, XCircle, Clock, ExternalLink, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -27,6 +27,22 @@ import {
 } from '@/components/ui/alert-dialog';
 import { SmtpSettings } from './SmtpSettings';
 import { ResendSettings } from './ResendSettings';
+import { CustomFormFieldManager } from './CustomFormFieldManager';
+import { FormFieldSettings } from './FormFieldSettings';
+import { ModuleSettings } from './ModuleSettings';
+import { RoleManagement } from './RoleManagement';
+import { isSelfHosted, getApiUrl } from '@/lib/selfHostedConfig';
+import {
+  getLicenseInfo,
+  saveLicenseInfo,
+  verifyLicenseViaBackend,
+  checkLicenseStatus,
+  getPlanFromMaxDevices,
+  getInstallationId,
+  LICENSE_PLANS,
+  LICENSE_PORTAL_URL,
+  type LicenseInfo,
+} from '@/lib/licenseConfig';
 
 interface UserRole {
   id: string;
@@ -58,10 +74,11 @@ interface WorkspacePermission {
 }
 
 interface AdminSettingsProps {
+  activeTab?: string;
   onAdminStatusChange?: (isAdmin: boolean) => void;
 }
 
-export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
+export function AdminSettings({ activeTab = 'general', onAdminStatusChange }: AdminSettingsProps) {
   const { user } = useAuth();
   const { language } = useLanguage();
   const { hasRole: isAdmin, loading: roleLoading, recheckRoles } = useIsAdmin();
@@ -69,21 +86,6 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [oauthCredentials, setOAuthCredentials] = useState<OAuthCredential[]>([]);
   const [loadingCredentials, setLoadingCredentials] = useState(false);
-  
-  // Role management state
-  const [newUserId, setNewUserId] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'user' | 'inventory_manager' | 'support_manager'>('user');
-  const [addingRole, setAddingRole] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState<UserRole | null>(null);
-  const [deletingRole, setDeletingRole] = useState(false);
-  
-  // Email lookup state
-  const [emailSearch, setEmailSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
-  const [searchingEmail, setSearchingEmail] = useState(false);
-  const [showSearchResults, setShowSearchResults] = useState(false);
   
   // User email cache for displaying in role list
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
@@ -105,6 +107,13 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
   const [onboardingEnabled, setOnboardingEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // License state
+  const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
+  const [licenseServerStatus, setLicenseServerStatus] = useState<any>(null);
+  const [loadingLicense, setLoadingLicense] = useState(false);
+  const [licenseKeyInput, setLicenseKeyInput] = useState('');
+  const [verifyingLicense, setVerifyingLicense] = useState(false);
+
   useEffect(() => {
     checkAdminStatus();
   }, [user, isAdmin]);
@@ -125,11 +134,101 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
         await loadOAuthCredentials();
         await loadWorkspacePermissions();
         await loadAppSettings();
+        await loadLicenseInfo();
       }
     } catch (error) {
       console.error('Failed to load admin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLicenseInfo = async () => {
+    setLoadingLicense(true);
+    try {
+      const stored = await getLicenseInfo();
+      setLicenseInfo(stored);
+
+      if (isSelfHosted()) {
+        try {
+          const status = await checkLicenseStatus(getApiUrl());
+          setLicenseServerStatus(status);
+        } catch {}
+      }
+    } catch (error) {
+      console.error('Failed to load license info:', error);
+    } finally {
+      setLoadingLicense(false);
+    }
+  };
+
+  const handleLicenseVerify = async () => {
+    if (!licenseKeyInput.trim()) return;
+    setVerifyingLicense(true);
+    try {
+      const result = await verifyLicenseViaBackend(licenseKeyInput.trim(), getApiUrl());
+      if (result.success) {
+        const info: LicenseInfo = {
+          licenseKey: licenseKeyInput.substring(0, 4) + '****',
+          status: (result.actual_status as any) || 'active',
+          maxDevices: result.max_devices || 5,
+          expiresAt: result.expires_at || null,
+          lastVerified: new Date().toISOString(),
+          installationId: getInstallationId(),
+          plan: getPlanFromMaxDevices(result.max_devices || 5),
+        };
+        await saveLicenseInfo(info);
+        setLicenseInfo(info);
+        setLicenseKeyInput('');
+        toast({ title: language === 'bn' ? 'লাইসেন্স যাচাই সফল' : 'License Verified!', description: result.message });
+        await loadLicenseInfo();
+      } else {
+        toast({ title: language === 'bn' ? 'যাচাই ব্যর্থ' : 'Verification Failed', description: result.message, variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setVerifyingLicense(false);
+    }
+  };
+
+  const handleLicenseRefresh = async () => {
+    setLoadingLicense(true);
+    try {
+      if (licenseInfo?.licenseKey && licenseInfo.licenseKey !== 'FREE' && licenseInfo.licenseKey !== '***') {
+        const result = await verifyLicenseViaBackend(licenseInfo.licenseKey, getApiUrl());
+        if (result.success) {
+          toast({ title: language === 'bn' ? 'লাইসেন্স রিফ্রেশ হয়েছে' : 'License Refreshed', description: result.message });
+        }
+      }
+      await loadLicenseInfo();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoadingLicense(false);
+    }
+  };
+
+  const getLicensePlanIcon = (plan: string) => {
+    switch (plan) {
+      case 'professional': return <Crown className="w-5 h-5 text-yellow-400" />;
+      case 'standard': return <Zap className="w-5 h-5 text-blue-400" />;
+      default: return <Star className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
+  const getLicenseStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30"><CheckCircle className="w-3 h-3 mr-1" /> Active</Badge>;
+      case 'free':
+        return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30"><Star className="w-3 h-3 mr-1" /> Free</Badge>;
+      case 'expired':
+        return <Badge className="bg-destructive/20 text-destructive border-destructive/30"><XCircle className="w-3 h-3 mr-1" /> Expired</Badge>;
+      case 'revoked':
+        return <Badge className="bg-destructive/20 text-destructive border-destructive/30"><XCircle className="w-3 h-3 mr-1" /> Revoked</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
@@ -209,37 +308,8 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
     }
   };
 
-  const searchByEmail = async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      setSearchResults([]);
-      setShowSearchResults(false);
-      return;
-    }
 
-    setSearchingEmail(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, email, full_name')
-        .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
-        .limit(10);
 
-      if (data) {
-        setSearchResults(data);
-        setShowSearchResults(true);
-      }
-    } catch (error) {
-      console.error('Failed to search users:', error);
-    } finally {
-      setSearchingEmail(false);
-    }
-  };
-
-  const selectUser = (result: UserSearchResult) => {
-    setNewUserId(result.user_id);
-    setEmailSearch(result.email || result.full_name || result.user_id);
-    setShowSearchResults(false);
-  };
 
   const loadWorkspacePermissions = async () => {
     try {
@@ -474,122 +544,8 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
     }
   };
 
-  const assignRole = async () => {
-    if (!newUserId.trim()) {
-      toast({
-        title: language === 'bn' ? 'ত্রুটি' : 'Error',
-        description: language === 'bn' ? 'ইউজার আইডি প্রয়োজন।' : 'User ID is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(newUserId.trim())) {
-      toast({
-        title: language === 'bn' ? 'ত্রুটি' : 'Error',
-        description: language === 'bn' ? 'অবৈধ ইউজার আইডি ফরম্যাট।' : 'Invalid User ID format.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
-    setAddingRole(true);
-    try {
-      // Check if role already exists
-      const existingRole = userRoles.find(
-        r => r.user_id === newUserId.trim() && r.role === newRole
-      );
-
-      if (existingRole) {
-        toast({
-          title: language === 'bn' ? 'ত্রুটি' : 'Error',
-          description: language === 'bn' ? 'এই রোল ইতিমধ্যে বিদ্যমান।' : 'This role already exists.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: newUserId.trim(),
-          role: newRole,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: language === 'bn' ? 'সফল' : 'Success',
-        description: language === 'bn' ? 'রোল সফলভাবে যোগ করা হয়েছে।' : 'Role assigned successfully.',
-      });
-
-      setNewUserId('');
-      await loadUserRoles();
-    } catch (error: any) {
-      console.error('Failed to assign role:', error);
-      toast({
-        title: language === 'bn' ? 'ত্রুটি' : 'Error',
-        description: error.message || (language === 'bn' ? 'রোল যোগ করতে ব্যর্থ।' : 'Failed to assign role.'),
-        variant: 'destructive',
-      });
-    } finally {
-      setAddingRole(false);
-    }
-  };
-
-  const confirmDeleteRole = (role: UserRole) => {
-    // Prevent deleting own admin role
-    if (role.user_id === user?.id && role.role === 'admin') {
-      toast({
-        title: language === 'bn' ? 'নিষেধ' : 'Not Allowed',
-        description: language === 'bn' ? 'আপনি নিজের এডমিন রোল মুছতে পারবেন না।' : 'You cannot revoke your own admin role.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setRoleToDelete(role);
-    setDeleteDialogOpen(true);
-  };
-
-  const deleteRole = async () => {
-    if (!roleToDelete) return;
-
-    setDeletingRole(true);
-    try {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('id', roleToDelete.id);
-
-      if (error) throw error;
-
-      toast({
-        title: language === 'bn' ? 'সফল' : 'Success',
-        description: language === 'bn' ? 'রোল সফলভাবে মুছে ফেলা হয়েছে।' : 'Role revoked successfully.',
-      });
-
-      await loadUserRoles();
-    } catch (error: any) {
-      console.error('Failed to delete role:', error);
-      toast({
-        title: language === 'bn' ? 'ত্রুটি' : 'Error',
-        description: error.message || (language === 'bn' ? 'রোল মুছতে ব্যর্থ।' : 'Failed to revoke role.'),
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingRole(false);
-      setDeleteDialogOpen(false);
-      setRoleToDelete(null);
-    }
-  };
-
-  const filteredRoles = userRoles.filter(role => 
-    role.user_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    role.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (userEmails[role.user_id] || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (loading) {
     return (
@@ -621,36 +577,9 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="general" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Settings className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'সাধারণ' : 'General'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Users className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'ইউজার' : 'Users'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="workspaces" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Briefcase className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'ওয়ার্কস্পেস' : 'Workspaces'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="email" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Mail className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'ইমেইল' : 'Email'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Shield className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'সিকিউরিটি' : 'Security'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className="flex items-center gap-1 md:gap-2 text-[10px] md:text-sm px-1 md:px-3">
-                <Key className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">{language === 'bn' ? 'ইন্টিগ্রেশন' : 'Integrations'}</span>
-              </TabsTrigger>
-            </TabsList>
-
+          <div className="w-full">
             {/* General Settings */}
-            <TabsContent value="general" className="space-y-4 mt-4">
+            {activeTab === 'general' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
                   <div className="flex items-start gap-3">
@@ -690,213 +619,30 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
                   </AlertDescription>
                 </Alert>
               </div>
-            </TabsContent>
+            )}
 
-            {/* Users & Role Management */}
-            <TabsContent value="users" className="space-y-4 mt-4">
-              {/* Add Role Section */}
-              <div className="p-3 md:p-4 rounded-lg border border-border bg-muted/30">
-                <h4 className="font-medium text-foreground mb-3 flex items-center gap-2 text-sm md:text-base">
-                  <UserPlus className="h-3 w-3 md:h-4 md:w-4" />
-                  {language === 'bn' ? 'নতুন রোল যোগ করুন' : 'Assign New Role'}
-                </h4>
-                <div className="space-y-3">
-                  {/* Email Search */}
-                  <div className="relative">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={language === 'bn' ? 'ইমেইল বা নাম দিয়ে খুঁজুন...' : 'Search by email or name...'}
-                        value={emailSearch}
-                        onChange={(e) => {
-                          setEmailSearch(e.target.value);
-                          searchByEmail(e.target.value);
-                        }}
-                        onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
-                        className="pl-9 bg-background"
-                      />
-                      {searchingEmail && (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                      )}
-                    </div>
-                    
-                    {/* Search Results Dropdown */}
-                    {showSearchResults && searchResults.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
-                        {searchResults.map((result) => (
-                          <button
-                            key={result.user_id}
-                            type="button"
-                            className="w-full px-3 py-2 text-left hover:bg-muted flex items-center gap-3 transition-colors"
-                            onClick={() => selectUser(result)}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Users className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {result.email || result.full_name || 'No email'}
-                              </p>
-                              <p className="text-xs text-muted-foreground font-mono truncate">
-                                {result.user_id}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {showSearchResults && searchResults.length === 0 && emailSearch.length >= 2 && !searchingEmail && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg p-3 text-center text-sm text-muted-foreground">
-                        {language === 'bn' ? 'কোনো ইউজার পাওয়া যায়নি' : 'No users found'}
-                      </div>
-                    )}
-                  </div>
+            {/* Module Management */}
+            {activeTab === 'modules' && (
+              <ModuleSettings />
+            )}
 
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Input
-                      placeholder={language === 'bn' ? 'ইউজার আইডি (UUID)' : 'User ID (UUID)'}
-                      value={newUserId}
-                      onChange={(e) => setNewUserId(e.target.value)}
-                      className="flex-1 bg-background font-mono text-sm"
-                    />
-                    <Select value={newRole} onValueChange={(v: 'admin' | 'user' | 'inventory_manager' | 'support_manager') => setNewRole(v)}>
-                      <SelectTrigger className="w-full sm:w-44 bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">
-                          <span className="flex items-center gap-2">
-                            <Crown className="h-3 w-3 text-yellow-500" />
-                            Admin
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="inventory_manager">
-                          <span className="flex items-center gap-2">
-                            <Settings className="h-3 w-3 text-green-500" />
-                            {language === 'bn' ? 'ইনভেন্টরি ম্যানেজার' : 'Inventory Manager'}
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="support_manager">
-                          <span className="flex items-center gap-2">
-                            <Users className="h-3 w-3 text-purple-500" />
-                            {language === 'bn' ? 'সাপোর্ট ম্যানেজার' : 'Support Manager'}
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="user">
-                          <span className="flex items-center gap-2">
-                            <Users className="h-3 w-3 text-blue-500" />
-                            User
-                          </span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={assignRole} disabled={addingRole || !newUserId.trim()}>
-                      {addingRole ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <UserPlus className="h-4 w-4" />
-                      )}
-                      <span className="ml-2">{language === 'bn' ? 'যোগ করুন' : 'Assign'}</span>
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {language === 'bn' 
-                      ? 'ইমেইল দিয়ে ইউজার খুঁজুন অথবা সরাসরি UUID দিন।'
-                      : 'Search users by email or enter UUID directly.'
-                    }
-                  </p>
-                </div>
-              </div>
+            {/* Custom Form Fields */}
+            {activeTab === 'custom-fields' && (
+              <CustomFormFieldManager />
+            )}
 
-              {/* Existing Roles */}
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-foreground">
-                  {language === 'bn' ? 'বর্তমান রোলসমূহ' : 'Current Roles'}
-                </h4>
-                <Badge variant="outline">
-                  {userRoles.length} {language === 'bn' ? 'রোল' : 'roles'}
-                </Badge>
-              </div>
+            {/* Field Visibility */}
+            {activeTab === 'field-visibility' && (
+              <FormFieldSettings />
+            )}
 
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={language === 'bn' ? 'রোল খুঁজুন...' : 'Search roles...'}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-muted/50"
-                />
-              </div>
-
-              <ScrollArea className="h-[250px] rounded-lg border border-border">
-                <div className="p-3 space-y-2">
-                  {filteredRoles.map((role) => {
-                    const getRoleStyle = () => {
-                      switch (role.role) {
-                        case 'admin': return { bg: 'bg-yellow-500/20', icon: <Crown className="h-4 w-4 text-yellow-500" />, label: language === 'bn' ? 'এডমিন' : 'Admin' };
-                        case 'inventory_manager': return { bg: 'bg-green-500/20', icon: <Settings className="h-4 w-4 text-green-500" />, label: language === 'bn' ? 'ইনভেন্টরি ম্যানেজার' : 'Inventory Manager' };
-                        case 'support_manager': return { bg: 'bg-purple-500/20', icon: <Users className="h-4 w-4 text-purple-500" />, label: language === 'bn' ? 'সাপোর্ট ম্যানেজার' : 'Support Manager' };
-                        default: return { bg: 'bg-blue-500/20', icon: <Users className="h-4 w-4 text-blue-500" />, label: language === 'bn' ? 'ইউজার' : 'User' };
-                      }
-                    };
-                    const roleStyle = getRoleStyle();
-                    return (
-                      <div key={role.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${roleStyle.bg}`}>
-                            {roleStyle.icon}
-                          </div>
-                          <div>
-                            <div>
-                              <p className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-[250px]">
-                                {userEmails[role.user_id] || (
-                                  <span className="text-muted-foreground italic">
-                                    {language === 'bn' ? 'ইমেইল নেই' : 'No email'}
-                                  </span>
-                                )}
-                                {role.user_id === user?.id && (
-                                  <span className="ml-2 text-primary text-xs">(you)</span>
-                                )}
-                              </p>
-                              <p className="text-xs text-muted-foreground font-mono truncate max-w-[150px] sm:max-w-[200px]">
-                                {role.user_id}
-                              </p>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(role.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={role.role === 'admin' ? 'default' : 'secondary'}>
-                            {roleStyle.label}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => confirmDeleteRole(role)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {filteredRoles.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground text-sm">
-                      {searchQuery 
-                        ? (language === 'bn' ? 'কোনো মিল পাওয়া যায়নি।' : 'No matches found.')
-                        : (language === 'bn' ? 'কোনো রোল পাওয়া যায়নি।' : 'No roles found.')
-                      }
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
+            {activeTab === 'users' && (
+              <RoleManagement />
+            )}
 
             {/* Workspace Permissions */}
-            <TabsContent value="workspaces" className="space-y-4 mt-4">
+            {activeTab === 'workspaces' && (
+            <div className="space-y-4">
               {/* Add Permission Section */}
               <div className="p-4 rounded-lg border border-border bg-muted/30">
                 <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
@@ -1089,19 +835,23 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
                   )}
                 </div>
               </ScrollArea>
-            </TabsContent>
+            </div>
+            )}
 
             {/* Email/SMTP Settings */}
-            <TabsContent value="email" className="space-y-6 mt-4">
+            {activeTab === 'email' && (
+            <div className="space-y-6">
               {/* Resend API Settings */}
               <ResendSettings />
               
               {/* SMTP Settings */}
               <SmtpSettings />
-            </TabsContent>
+            </div>
+            )}
 
             {/* Security Settings */}
-            <TabsContent value="security" className="space-y-4 mt-4">
+            {activeTab === 'security' && (
+            <div className="space-y-4">
               <div className="space-y-4">
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
                   <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
@@ -1163,10 +913,12 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
+            </div>
+            )}
 
             {/* Integrations Settings */}
-            <TabsContent value="integrations" className="space-y-4 mt-4">
+            {activeTab === 'integrations' && (
+            <div className="space-y-4">
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
@@ -1233,49 +985,221 @@ export function AdminSettings({ onAdminStatusChange }: AdminSettingsProps) {
                   }
                 </p>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+            )}
+
+            {/* License Information */}
+            {activeTab === 'license' && (
+            <div className="space-y-4">
+              {loadingLicense ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Current License Info */}
+                  {licenseInfo && (
+                    <div className="p-5 rounded-xl border border-border bg-card space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getLicensePlanIcon(licenseInfo.plan)}
+                          <div>
+                            <h3 className="font-semibold text-foreground capitalize">
+                              {licenseInfo.plan} {language === 'bn' ? 'প্ল্যান' : 'Plan'}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              {language === 'bn' ? 'সর্বোচ্চ' : 'Max'}{' '}
+                              {licenseInfo.maxDevices >= 99999 ? (language === 'bn' ? 'আনলিমিটেড' : 'Unlimited') : licenseInfo.maxDevices}{' '}
+                              {language === 'bn' ? 'ইউজার' : 'users'}
+                            </p>
+                          </div>
+                        </div>
+                        {getLicenseStatusBadge(licenseInfo.status)}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs">{language === 'bn' ? 'লাইসেন্স কী' : 'License Key'}</p>
+                          <p className="font-mono text-foreground text-xs">
+                            {licenseInfo.licenseKey === 'FREE' ? 'FREE' : `${licenseInfo.licenseKey.slice(0, 8)}...`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">{language === 'bn' ? 'মেয়াদ শেষ' : 'Expires'}</p>
+                          <p className="text-foreground">
+                            {licenseInfo.expiresAt
+                              ? new Date(licenseInfo.expiresAt).toLocaleDateString()
+                              : (language === 'bn' ? 'কখনো না' : 'Never')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">{language === 'bn' ? 'ইনস্টলেশন আইডি' : 'Installation ID'}</p>
+                          <p className="font-mono text-foreground text-xs truncate">{licenseInfo.installationId.slice(0, 24)}...</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">{language === 'bn' ? 'শেষ যাচাই' : 'Last Verified'}</p>
+                          <p className="text-foreground">{new Date(licenseInfo.lastVerified).toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      {/* Expiry Warning */}
+                      {licenseInfo.expiresAt && licenseInfo.status !== 'free' && (() => {
+                        const daysLeft = Math.ceil((new Date(licenseInfo.expiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        if (daysLeft <= 30 && daysLeft > 0) {
+                          return (
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                              <Clock className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                              <span className="text-foreground">
+                                {language === 'bn'
+                                  ? `লাইসেন্সের মেয়াদ ${daysLeft} দিনে শেষ হবে।`
+                                  : `License expires in ${daysLeft} days.`}
+                              </span>
+                            </div>
+                          );
+                        }
+                        if (daysLeft <= 0) {
+                          return (
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm">
+                              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                              <span className="text-destructive">
+                                {language === 'bn'
+                                  ? `লাইসেন্সের মেয়াদ ${Math.abs(daysLeft)} দিন আগে শেষ হয়েছে!`
+                                  : `License expired ${Math.abs(daysLeft)} days ago!`}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={handleLicenseRefresh} disabled={loadingLicense}>
+                          {loadingLicense ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                          {language === 'bn' ? 'পুনরায় যাচাই' : 'Re-verify'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`${LICENSE_PORTAL_URL}/products.php`, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          {language === 'bn' ? 'পোর্টাল' : 'Portal'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!licenseInfo && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p>{language === 'bn' ? 'কোনো লাইসেন্স তথ্য পাওয়া যায়নি।' : 'No license information found.'}</p>
+                    </div>
+                  )}
+
+                  {/* Server Status */}
+                  {licenseServerStatus && (
+                    <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                      <h4 className="font-medium text-sm text-foreground flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        {language === 'bn' ? 'সার্ভার স্ট্যাটাস' : 'Server Status'}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">{language === 'bn' ? 'কনফিগার করা' : 'Configured'}</p>
+                          <p className="font-medium text-foreground">{licenseServerStatus.configured ? '✅ Yes' : '❌ No'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{language === 'bn' ? 'স্ট্যাটাস' : 'Status'}</p>
+                          <p className="font-medium text-foreground capitalize">{(licenseServerStatus as any).status || 'Unknown'}</p>
+                        </div>
+                        {(licenseServerStatus as any).max_devices && (
+                          <div>
+                            <p className="text-muted-foreground">{language === 'bn' ? 'সর্বোচ্চ ডিভাইস' : 'Max Devices'}</p>
+                            <p className="font-medium text-foreground">{(licenseServerStatus as any).max_devices}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Change / Import License */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-primary" />
+                      <h4 className="font-medium text-foreground">
+                        {language === 'bn' ? 'লাইসেন্স কী পরিবর্তন / ইমপোর্ট' : 'Change / Import License Key'}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'bn'
+                        ? 'নতুন লাইসেন্স কী প্রবেশ করুন।'
+                        : 'Enter a new license key to activate or change your plan.'}
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={licenseKeyInput}
+                        onChange={(e) => setLicenseKeyInput(e.target.value)}
+                        placeholder="LIFEOS-XXXX-XXXX-XXXX-XXXX"
+                        className="font-mono flex-1"
+                        onKeyDown={(e) => e.key === 'Enter' && handleLicenseVerify()}
+                      />
+                      <Button onClick={handleLicenseVerify} disabled={verifyingLicense || !licenseKeyInput.trim()}>
+                        {verifyingLicense ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Plan Comparison */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-foreground text-sm">{language === 'bn' ? 'উপলব্ধ প্ল্যান' : 'Available Plans'}</h4>
+                    <div className="grid gap-2">
+                      {LICENSE_PLANS.map((plan) => (
+                        <div
+                          key={plan.id}
+                          className={`p-3 rounded-lg border transition-all ${
+                            licenseInfo?.plan === plan.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border bg-card/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {getLicensePlanIcon(plan.id)}
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{plan.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {plan.maxDevices >= 99999 ? (language === 'bn' ? 'আনলিমিটেড' : 'Unlimited') : plan.maxDevices} {language === 'bn' ? 'ইউজার' : 'users'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-primary">{plan.price}</span>
+                              {licenseInfo?.plan === plan.id && (
+                                <Badge variant="secondary" className="text-xs">{language === 'bn' ? 'বর্তমান' : 'Current'}</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => window.open(`${LICENSE_PORTAL_URL}/products.php`, '_blank')}
+                    >
+                      {language === 'bn' ? 'লাইসেন্স কিনুন' : 'Purchase License'}
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              {language === 'bn' ? 'রোল মুছুন' : 'Revoke Role'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {language === 'bn' 
-                ? `আপনি কি নিশ্চিত যে আপনি এই ইউজারের "${roleToDelete?.role}" রোল মুছতে চান?`
-                : `Are you sure you want to revoke the "${roleToDelete?.role}" role from this user?`
-              }
-              <br />
-              <span className="font-mono text-xs mt-2 block">
-                {roleToDelete?.user_id}
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingRole}>
-              {language === 'bn' ? 'বাতিল' : 'Cancel'}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={deleteRole}
-              disabled={deletingRole}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingRole ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              {language === 'bn' ? 'মুছুন' : 'Revoke'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

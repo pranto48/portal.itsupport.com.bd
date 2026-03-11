@@ -1,63 +1,93 @@
 
-## Fix: Backup and Restore Crash ("Something went wrong")
 
-### Root Cause Analysis
+## Analysis: Why Restored Data Does Not Appear in Docker
 
-The restore crashes the entire app (triggering the global ErrorBoundary) due to multiple cascading issues:
+### Root Cause (Critical Discovery)
 
-**1. Missing Foreign Key Cleanup (Delete Phase)**
-Several dependent tables are NOT cleaned up before parent tables are deleted, causing FK constraint violations that prevent proper deletion:
-- `loan_payments.transaction_id` references `transactions` -- not cleaned before deleting transactions
-- `transactions.family_member_id` references `family_members` -- not cleaned before deleting family
-- `device_service_history.task_id` references `tasks` -- not cleaned before deleting tasks
+The restore operation **works correctly** — data IS successfully written to the PostgreSQL database via the backend API (`/api/data/:table/upsert`). The `user_id` is properly remapped on line 706 of DataExport.tsx and again on line 1165 of server.js.
 
-When deletes fail silently (FK violations), the old records remain. The subsequent inserts then fail with duplicate primary key errors because the backup data includes original record IDs.
+**The real problem**: Every page in the application (Tasks, Notes, Goals, Dashboard, etc.) fetches data using `supabase.from('tasks').select(...)` directly. In Docker mode, the Supabase client points to `http://localhost:9999` — a dummy URL that doesn't exist. This means:
 
-**2. No Error Boundary Around Settings Content**
-The entire app is wrapped in a single global ErrorBoundary. When the page reloads after a partial restore (line 625: `window.location.reload()`), the app renders with inconsistent data (e.g., tasks referencing deleted categories), which can crash during render and trigger the global error page.
+- Restore writes data to PostgreSQL via `/api/data/:table` — **works**
+- Pages read data via `supabase.from().select()` hitting `localhost:9999` — **fails silently**
+- Result: "restore complete" but nothing shows anywhere
 
-**3. Import Function Only Imports Tasks and Goals**
-The `importJSON` function (for "JSON backup" import) only handles tasks and goals, silently ignoring all other data types. While it strips IDs correctly, it doesn't strip computed fields or handle FK references.
+The error logs confirm this: every single `localhost:9999/rest/v1/...` request fails with `ERR_CONNECTION_REFUSED`.
 
-### Fix Plan
+### Scope of the Problem
 
-#### Step 1: Add Comprehensive FK Cleanup Before Deletes
-Add cleanup for ALL dependent tables before their parent tables are deleted:
-- Delete `loan_payments` (with transaction_id references) before deleting `transactions`
-- Nullify or delete `transactions` with `family_member_id` before deleting `family_members`
-- Delete `device_service_history` entries referencing user's tasks before deleting `tasks`
+There are **167 `supabase.from()` calls across 9 page files** plus additional calls in hooks and components. Making every single page dual-mode is a massive undertaking that would touch virtually every file in the application.
 
-#### Step 2: Use Upsert Instead of Insert for Restore
-Change all restore inserts from `.insert()` to `.upsert()` with `onConflict: 'id'`. This handles the case where records weren't fully deleted by updating them instead of failing on duplicate keys.
+### Proposed Solution: Proxy Supabase REST Calls Through the Backend
 
-#### Step 3: Strip Problematic Fields from Restore Data
-Expand the `stripFields` list to include all computed/generated columns and fields that could cause FK issues:
-- `search_vector` (computed column on notes)
-- `created_at`, `updated_at` (let DB set these fresh)
+Instead of rewriting every page, we intercept at the infrastructure level:
 
-#### Step 4: Wrap Settings Content in SectionErrorBoundary
-Wrap the DataExport component (and the Settings page content area) in a `SectionErrorBoundary` so that restore errors don't crash the entire app -- only the settings section shows an error with a retry option.
+**1. Add a PostgREST-compatible proxy layer to the Docker backend (`docker/backend/server.js`)**
 
-#### Step 5: Add Global Unhandled Rejection Handler
-Add a `window.addEventListener('unhandledrejection', ...)` handler in App.tsx to catch any stray async errors that slip through try/catch blocks, preventing them from crashing the app.
+Add a route handler for `/rest/v1/:table` that translates Supabase-style REST API calls into direct PostgreSQL queries. This way, when the Supabase client in Docker mode calls `localhost:9999/rest/v1/tasks?select=*&user_id=eq.xxx`, the nginx proxy routes it to the backend which executes the equivalent SQL query.
 
-#### Step 6: Remove Auto-Reload After Restore
-Remove the `window.location.reload()` after restore. Instead, just show a success toast. The user can manually refresh if needed. This prevents crashes from loading the app with inconsistent data.
+The proxy will handle:
+- `GET /rest/v1/:table` — Parse PostgREST query params (`select`, `eq`, `order`, `limit`, `offset`, `in`, `not.is`, `gte`, `lte`, `like`, `neq`, `or`)
+- `POST /rest/v1/:table` — Insert rows (handle both single and array bodies)
+- `PATCH /rest/v1/:table` — Update rows with filter params
+- `DELETE /rest/v1/:table` — Delete rows with filter params
+- `HEAD /rest/v1/:table` — Return count headers (used by some operations)
+
+Auth will be extracted from the `apikey`/`Authorization` header that the Supabase client sends.
+
+**2. Update the Supabase client URL in Docker builds (`Dockerfile`)**
+
+Change `VITE_SUPABASE_URL` from `http://localhost:9999` to an empty string or a relative URL, and configure nginx to proxy `/rest/v1/` requests to the backend.
+
+**3. Update nginx proxy config (`nginx.conf`)**
+
+Add a proxy rule so `/rest/v1/` requests are forwarded to the backend server alongside the existing `/api/` proxy.
+
+**4. Handle the `functions/v1/` calls**
+
+Add a catch-all for `/functions/v1/` that returns graceful no-op responses in Docker mode (these are edge functions that don't exist in self-hosted).
 
 ### Technical Details
 
-**Files to modify:**
+**PostgREST query param parser** — the key translations needed:
 
-1. **`src/components/settings/DataExport.tsx`**:
-   - Add `loan_payments` cleanup before `transactions` delete
-   - Add `transactions` family_member_id nullification before `family` delete
-   - Change `.insert()` to `.upsert()` with `onConflict: 'id'` in `executeSelectiveRestore`
-   - Add `created_at` and `updated_at` to `stripFields`
-   - Remove `window.location.reload()` 
-   - Wrap the entire function body in additional error safety
+```text
+?select=*                          → SELECT *
+?select=id,title,status            → SELECT id, title, status
+&user_id=eq.{uuid}                 → WHERE user_id = '{uuid}'
+&status=neq.pending                → WHERE status != 'pending'
+&date=gte.2026-02-01               → WHERE date >= '2026-02-01'
+&order=created_at.desc             → ORDER BY created_at DESC
+&limit=20&offset=0                 → LIMIT 20 OFFSET 0
+&or=(col1.eq.val1,col2.eq.val2)    → WHERE (col1 = 'val1' OR col2 = 'val2')
+&col=in.(val1,val2)                → WHERE col IN ('val1', 'val2')
+&col=not.is.null                   → WHERE col IS NOT NULL
+```
 
-2. **`src/pages/Settings.tsx`**:
-   - Import and wrap `renderContent()` output in `SectionErrorBoundary`
+**Auth handling** — The Supabase client sends the anon key as `apikey` header plus the user's JWT in `Authorization: Bearer`. In Docker mode, the JWT is the self-hosted token. We need to:
+- Accept both the dummy anon key and the self-hosted JWT
+- Extract user identity from the self-hosted JWT via `verifyToken()`
+- Scope queries by user_id automatically for data tables
 
-3. **`src/App.tsx`**:
-   - Add `unhandledrejection` event listener in `AppContent` to catch stray async errors
+**RPC calls** — Handle `POST /rest/v1/rpc/:function_name` for database functions like `get_support_users_safe`.
+
+### Files to modify
+
+- `docker/backend/server.js` — Add PostgREST-compatible proxy routes (~200 lines)
+- `nginx.conf` — Add `/rest/v1/` and `/functions/v1/` proxy rules
+- `Dockerfile` — Change `VITE_SUPABASE_URL` to point to the app itself (e.g., `http://localhost:80` or use relative URL)
+
+### Why this approach
+
+- **Zero changes to any page or component** — all 167+ `supabase.from()` calls work as-is
+- **Backup, restore, AND normal page rendering** all work
+- **Future-proof** — any new pages automatically work in Docker mode
+- **Single point of maintenance** — the proxy layer in server.js
+
+### Risk mitigation
+
+- The PostgREST query parser doesn't need to be 100% complete — just the subset actually used by the app
+- Unknown query params are safely ignored
+- Tables are still whitelisted for security
+- User scoping is enforced server-side
+

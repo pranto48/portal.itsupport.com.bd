@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_config: {
+        Row: {
+          api_key_encrypted: string | null
+          created_at: string | null
+          daily_usage_count: number | null
+          id: string
+          last_usage_date: string | null
+          model_preference: string | null
+          provider: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          created_at?: string | null
+          daily_usage_count?: number | null
+          id?: string
+          last_usage_date?: string | null
+          model_preference?: string | null
+          provider?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          created_at?: string | null
+          daily_usage_count?: number | null
+          id?: string
+          last_usage_date?: string | null
+          model_preference?: string | null
+          provider?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      app_notifications: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean
+          message: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_secrets: {
         Row: {
           created_at: string
@@ -243,6 +315,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_form_fields: {
+        Row: {
+          created_at: string
+          default_value: string | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_options: Json | null
+          field_type: string
+          id: string
+          is_active: boolean
+          is_required: boolean
+          placeholder: string | null
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_value?: string | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_options?: Json | null
+          field_type?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          placeholder?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_value?: string | null
+          entity_type?: string
+          field_label?: string
+          field_name?: string
+          field_options?: Json | null
+          field_type?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          placeholder?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       device_categories: {
         Row: {
@@ -817,6 +940,36 @@ export type Database = {
         }
         Relationships: []
       }
+      form_field_config: {
+        Row: {
+          entity_type: string
+          field_name: string
+          id: string
+          is_custom: boolean
+          is_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          entity_type: string
+          field_name: string
+          id?: string
+          is_custom?: boolean
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          entity_type?: string
+          field_name?: string
+          id?: string
+          is_custom?: boolean
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       goal_milestones: {
         Row: {
           completed_at: string | null
@@ -866,6 +1019,7 @@ export type Database = {
           category: string | null
           created_at: string
           current_amount: number | null
+          custom_fields: Json | null
           description: string | null
           goal_type: string
           id: string
@@ -881,6 +1035,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           current_amount?: number | null
+          custom_fields?: Json | null
           description?: string | null
           goal_type?: string
           id?: string
@@ -896,6 +1051,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           current_amount?: number | null
+          custom_fields?: Json | null
           description?: string | null
           goal_type?: string
           id?: string
@@ -1205,10 +1361,35 @@ export type Database = {
         }
         Relationships: []
       }
+      module_config: {
+        Row: {
+          id: string
+          is_enabled: boolean
+          module_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_enabled?: boolean
+          module_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           content: string | null
           created_at: string
+          custom_fields: Json | null
           encrypted_content: string | null
           id: string
           is_favorite: boolean | null
@@ -1225,6 +1406,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          custom_fields?: Json | null
           encrypted_content?: string | null
           id?: string
           is_favorite?: boolean | null
@@ -1241,6 +1423,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
+          custom_fields?: Json | null
           encrypted_content?: string | null
           id?: string
           is_favorite?: boolean | null
@@ -1263,6 +1446,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          family_event_reminders: boolean
+          follow_up_reminders: boolean
+          habit_reminders: boolean
+          id: string
+          loan_reminders: boolean
+          task_assignment_alerts: boolean
+          task_reminders: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          family_event_reminders?: boolean
+          follow_up_reminders?: boolean
+          habit_reminders?: boolean
+          id?: string
+          loan_reminders?: boolean
+          task_assignment_alerts?: boolean
+          task_reminders?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          family_event_reminders?: boolean
+          follow_up_reminders?: boolean
+          habit_reminders?: boolean
+          id?: string
+          loan_reminders?: boolean
+          task_assignment_alerts?: boolean
+          task_reminders?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pomodoro_settings: {
+        Row: {
+          auto_start_breaks: boolean
+          auto_start_work: boolean
+          created_at: string
+          id: string
+          long_break: number
+          sessions_before_long_break: number
+          short_break: number
+          updated_at: string
+          user_id: string
+          work_duration: number
+        }
+        Insert: {
+          auto_start_breaks?: boolean
+          auto_start_work?: boolean
+          created_at?: string
+          id?: string
+          long_break?: number
+          sessions_before_long_break?: number
+          short_break?: number
+          updated_at?: string
+          user_id: string
+          work_duration?: number
+        }
+        Update: {
+          auto_start_breaks?: boolean
+          auto_start_work?: boolean
+          created_at?: string
+          id?: string
+          long_break?: number
+          sessions_before_long_break?: number
+          short_break?: number
+          updated_at?: string
+          user_id?: string
+          work_duration?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1350,6 +1611,7 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          custom_fields: Json | null
           description: string | null
           id: string
           priority: string | null
@@ -1363,6 +1625,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           id?: string
           priority?: string | null
@@ -1376,6 +1639,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           id?: string
           priority?: string | null
@@ -1694,6 +1958,7 @@ export type Database = {
       support_users: {
         Row: {
           created_at: string
+          custom_fields: Json | null
           department_id: string
           designation: string | null
           device_assign_date: string | null
@@ -1717,6 +1982,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_fields?: Json | null
           department_id: string
           designation?: string | null
           device_assign_date?: string | null
@@ -1740,6 +2006,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_fields?: Json | null
           department_id?: string
           designation?: string | null
           device_assign_date?: string | null
@@ -1957,16 +2224,66 @@ export type Database = {
           },
         ]
       }
+      task_templates: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          last_generated_at: string | null
+          priority: string | null
+          schedule_config: Json | null
+          schedule_type: string
+          task_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_generated_at?: string | null
+          priority?: string | null
+          schedule_config?: Json | null
+          schedule_type?: string
+          task_type?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_generated_at?: string | null
+          priority?: string | null
+          schedule_config?: Json | null
+          schedule_type?: string
+          task_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           category_id: string | null
           completed_at: string | null
           created_at: string
+          custom_fields: Json | null
           description: string | null
           due_date: string | null
           due_time: string | null
           estimated_time: number | null
           follow_up_date: string | null
+          goal_id: string | null
           id: string
           is_recurring: boolean | null
           needs_follow_up: boolean | null
@@ -1986,11 +2303,13 @@ export type Database = {
           category_id?: string | null
           completed_at?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
           due_time?: string | null
           estimated_time?: number | null
           follow_up_date?: string | null
+          goal_id?: string | null
           id?: string
           is_recurring?: boolean | null
           needs_follow_up?: boolean | null
@@ -2010,11 +2329,13 @@ export type Database = {
           category_id?: string | null
           completed_at?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
           due_time?: string | null
           estimated_time?: number | null
           follow_up_date?: string | null
+          goal_id?: string | null
           id?: string
           is_recurring?: boolean | null
           needs_follow_up?: boolean | null
@@ -2036,6 +2357,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "task_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
             referencedColumns: ["id"]
           },
           {
@@ -2285,6 +2613,66 @@ export type Database = {
           },
         ]
       }
+      time_entries: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          end_time: string | null
+          entry_type: string
+          id: string
+          is_running: boolean | null
+          notes: string | null
+          project_id: string | null
+          start_time: string
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          end_time?: string | null
+          entry_type?: string
+          id?: string
+          is_running?: boolean | null
+          notes?: string | null
+          project_id?: string | null
+          start_time?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          end_time?: string | null
+          entry_type?: string
+          id?: string
+          is_running?: boolean | null
+          notes?: string | null
+          project_id?: string | null
+          start_time?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account: string | null
@@ -2292,6 +2680,7 @@ export type Database = {
           attachment_url: string | null
           category_id: string | null
           created_at: string
+          custom_fields: Json | null
           date: string
           family_member_id: string | null
           id: string
@@ -2311,6 +2700,7 @@ export type Database = {
           attachment_url?: string | null
           category_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
           date?: string
           family_member_id?: string | null
           id?: string
@@ -2330,6 +2720,7 @@ export type Database = {
           attachment_url?: string | null
           category_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
           date?: string
           family_member_id?: string | null
           id?: string
@@ -2543,17 +2934,182 @@ export type Database = {
         }
         Relationships: []
       }
+      webhooks: {
+        Row: {
+          call_count: number | null
+          created_at: string
+          field_mapping: Json | null
+          id: string
+          is_active: boolean | null
+          last_called_at: string | null
+          name: string
+          target_type: string
+          updated_at: string
+          user_id: string
+          webhook_key: string
+        }
+        Insert: {
+          call_count?: number | null
+          created_at?: string
+          field_mapping?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_called_at?: string | null
+          name: string
+          target_type?: string
+          updated_at?: string
+          user_id: string
+          webhook_key?: string
+        }
+        Update: {
+          call_count?: number | null
+          created_at?: string
+          field_mapping?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_called_at?: string | null
+          name?: string
+          target_type?: string
+          updated_at?: string
+          user_id?: string
+          webhook_key?: string
+        }
+        Relationships: []
+      }
+      workflow_logs: {
+        Row: {
+          action_result: Json | null
+          created_at: string
+          error_message: string | null
+          id: string
+          rule_id: string
+          status: string
+          trigger_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          action_result?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          rule_id: string
+          status?: string
+          trigger_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          action_result?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          rule_id?: string
+          status?: string
+          trigger_data?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_rules: {
+        Row: {
+          action_config: Json
+          action_type: string
+          created_at: string
+          description: string | null
+          execution_count: number | null
+          id: string
+          is_active: boolean | null
+          last_executed_at: string | null
+          name: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_config?: Json
+          action_type: string
+          created_at?: string
+          description?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: string
+          created_at?: string
+          description?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_support_users_safe: {
+        Args: never
+        Returns: {
+          created_at: string
+          department_id: string
+          designation: string
+          device_assign_date: string
+          device_handover_date: string
+          device_info: string
+          email: string
+          extension_number: string
+          id: string
+          ip_address: string
+          is_active: boolean
+          name: string
+          nas_username: string
+          new_device_assign: string
+          notes: string
+          phone: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      notify_role_users: {
+        Args: {
+          _entity_id?: string
+          _entity_type?: string
+          _message: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _title: string
+          _type: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
