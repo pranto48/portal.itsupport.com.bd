@@ -18,8 +18,8 @@ MapApp.network = {
                         callback(null); // Cancel adding edge
                         return;
                     }
-                    const newEdge = await MapApp.api.post('create_edge', { source_id: edgeData.from, target_id: edgeData.to, map_id: MapApp.state.currentMapId, connection_type: 'cat5' }); 
-                    edgeData.id = newEdge.id; edgeData.label = 'cat5'; callback(edgeData); 
+                    const newEdge = await MapApp.api.post('create_edge', { source_id: edgeData.from, target_id: edgeData.to, map_id: MapApp.state.currentMapId, connection_type: 'cat6' }); 
+                    edgeData.id = newEdge.id; edgeData.label = 'cat6'; callback(edgeData); 
                     window.notyf.success('Connection added.');
                 }
             } 
@@ -90,7 +90,9 @@ MapApp.network = {
         contextMenu.addEventListener('click', async (e) => {
             const target = e.target.closest('.context-menu-item');
             if (target) {
-                const { action, id } = target.dataset;
+                const { action } = target.dataset;
+                // Parse ID as number to match vis.js integer node IDs from MySQL AUTO_INCREMENT
+                const id = isNaN(target.dataset.id) ? target.dataset.id : Number(target.dataset.id);
                 closeContextMenu();
 
                 if (window.userRole === 'admin') {

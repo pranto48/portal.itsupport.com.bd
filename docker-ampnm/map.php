@@ -28,10 +28,62 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
         <div id="map-container" class="hidden">
             <div id="map-controls" class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
                 <div class="flex items-center justify-between">
-                    <h2 id="currentMapName" class="text-xl font-semibold text-white"></h2>
+                    <div class="flex items-center gap-3">
+                        <h2 id="currentMapName" class="text-xl font-semibold text-white"></h2>
+                        <span id="offlineDelayBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300 border border-slate-600" title="Offline detection delay">
+                            <i class="fas fa-clock text-amber-400"></i>
+                            <span id="offlineDelayValue">5</span>s delay
+                        </span>
+                    </div>
                     <div class="flex items-center gap-2">
                         <button id="scanNetworkBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Scan Network" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-search"></i></button>
                         <button id="refreshStatusBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Refresh Device Statuses"><i class="fas fa-sync-alt"></i></button>
+
+                        <!-- Sound Alert Settings -->
+                        <div class="relative inline-block">
+                            <button id="soundSettingsBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Sound Alert Settings">
+                                <i id="soundMasterIcon" class="fas fa-volume-up"></i>
+                            </button>
+                            <div id="soundSettingsPopover" class="hidden absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-sm font-semibold text-white">Sound Alerts</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="soundMasterToggle" class="sr-only peer" checked>
+                                        <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                    </label>
+                                </div>
+                                <div class="space-y-2 pl-1" id="soundTypeToggles">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-400 capitalize">Online</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" data-sound="online" class="sr-only peer sound-toggle" checked>
+                                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-400 capitalize">Offline</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" data-sound="offline" class="sr-only peer sound-toggle" checked>
+                                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-400 capitalize">Warning</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" data-sound="warning" class="sr-only peer sound-toggle" checked>
+                                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-400 capitalize">Critical</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" data-sound="critical" class="sr-only peer sound-toggle" checked>
+                                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="flex items-center space-x-2 pl-2 ml-2 border-l border-slate-700">
                             <label for="liveRefreshToggle" class="text-sm text-slate-400 select-none cursor-pointer">Live Status</label>
@@ -47,6 +99,7 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
                         <div class="pl-2 ml-2 border-l border-slate-700 flex items-center gap-2">
                             <button id="placeDeviceBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Place Existing Device" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-download"></i></button>
                             <a href="create-device.php" id="addDeviceBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Add New Device" <?= $is_admin ? '' : 'style="display:none;"' ?>><i class="fas fa-plus"></i></a>
+                            <button id="addGroupBoxBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Add Group Box" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-vector-square"></i></button>
                             <button id="addEdgeBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Add Connection" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-project-diagram"></i></button>
                             <button id="exportBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Export Map" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-file-export"></i></button>
                             <button id="importBtn" class="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600" title="Import Map" <?= $is_admin ? '' : 'disabled' ?>><i class="fas fa-file-import"></i></button>
@@ -71,7 +124,7 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
                     <div class="space-y-2 text-xs">
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-0.5 rounded-full" style="background-color: #a78bfa; box-shadow: 0 0 6px #a78bfa;"></div>
-                            <span class="text-slate-300">🔌 CAT5 Cable</span>
+                            <span class="text-slate-300">🔌 CAT6 Cable</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-0.5 rounded-full" style="background-color: #f97316; box-shadow: 0 0 6px #f97316;"></div>
@@ -117,7 +170,7 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
     <!-- The old deviceModal HTML is removed as it's replaced by React components -->
 
     <div id="edgeModal" class="modal-backdrop hidden">
-        <div class="modal-panel bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md border border-slate-700">
+        <div class="modal-panel bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-lg border border-slate-700">
             <h2 class="text-xl font-semibold text-white mb-4"><i class="fas fa-project-diagram mr-2 text-cyan-400"></i>Edit Connection</h2>
             <form id="edgeForm">
                 <input type="hidden" id="edgeId">
@@ -125,7 +178,7 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
                     <label class="block text-sm font-medium text-slate-300 mb-2">Connection Type</label>
                     <select id="connectionType" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white">
                         <option value="" disabled selected>Select a connection type</option>
-                        <option value="cat5" data-color="#a78bfa">🔌 CAT5 Cable</option>
+                        <option value="cat6" data-color="#a78bfa">🔌 CAT6 Cable</option>
                         <option value="fiber" data-color="#f97316">💡 Fiber Optic</option>
                         <option value="wifi" data-color="#38bdf8">📡 WiFi</option>
                         <option value="radio" data-color="#84cc16">📻 Radio</option>
@@ -142,8 +195,44 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
                         </div>
                     </div>
                 </div>
+
+                <!-- Port-to-Port Connection (Cisco Packet Tracer style) -->
+                <div class="border border-slate-600 rounded-lg p-4 mb-4 space-y-3">
+                    <h3 class="text-sm font-semibold text-cyan-400 flex items-center gap-2">
+                        <i class="fas fa-ethernet"></i> Port-to-Port Mapping
+                    </h3>
+                    <p class="text-xs text-slate-500">Specify which physical ports are used on each device (like Cisco Packet Tracer).</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">
+                                <i class="fas fa-arrow-right mr-1 text-green-400"></i>Source Port
+                            </label>
+                            <div id="edgeSourceDeviceName" class="text-xs text-slate-500 mb-1 truncate"></div>
+                            <select id="edgeSourcePort" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-cyan-500">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">
+                                <i class="fas fa-arrow-left mr-1 text-blue-400"></i>Target Port
+                            </label>
+                            <div id="edgeTargetDeviceName" class="text-xs text-slate-500 mb-1 truncate"></div>
+                            <select id="edgeTargetPort" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-cyan-500">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="portPreview" class="hidden bg-slate-900/50 rounded-lg p-2 mt-2">
+                        <div class="flex items-center justify-center gap-2 text-sm">
+                            <span id="portPreviewSource" class="font-mono text-green-400"></span>
+                            <i class="fas fa-arrows-left-right text-cyan-400"></i>
+                            <span id="portPreviewTarget" class="font-mono text-blue-400"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-slate-900/50 p-3 rounded-lg mb-4">
-                    <p class="text-xs text-slate-400"><i class="fas fa-info-circle mr-1 text-cyan-400"></i><strong>Tip:</strong> Each connection type has a unique color on the map for easy identification.</p>
+                    <p class="text-xs text-slate-400"><i class="fas fa-info-circle mr-1 text-cyan-400"></i><strong>Tip:</strong> Each connection type has a unique color. Select ports to show which interface is used (e.g., G0/1 ↔ SFP01).</p>
                 </div>
                 <div class="flex justify-end gap-3 mt-6">
                     <button type="button" id="cancelEdgeBtn" class="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition">Cancel</button>
@@ -205,6 +294,14 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
                     </div>
                 </div>
                 <div class="border-t border-slate-700 pt-4 mt-4 space-y-3">
+                    <h3 class="text-lg font-semibold text-white">Offline Detection</h3>
+                    <div>
+                        <label for="offlineDelaySeconds" class="block text-sm font-medium text-slate-400 mb-1">Offline Delay (seconds)</label>
+                        <input type="number" id="offlineDelaySeconds" name="offline_delay_seconds" min="1" max="300" value="5" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 text-white">
+                        <p class="text-xs text-slate-500 mt-1">How many seconds a device must fail pings before being marked offline. Default: 5</p>
+                    </div>
+                </div>
+                <div class="border-t border-slate-700 pt-4 mt-4 space-y-3">
                     <h3 class="text-lg font-semibold text-white">Public View Settings</h3>
                     <div>
                         <label for="publicViewToggle" class="flex items-center text-sm font-medium text-slate-400 cursor-pointer">
@@ -255,6 +352,47 @@ $deviceIconsLibrary = require_once 'includes/device_icons.php';
 <!-- Load device icons library for JavaScript icon mapping -->
 <script>
     window.deviceIconsLibrary = <?= json_encode($deviceIconsLibrary) ?>;
+</script>
+
+<!-- Sound Settings Popover Logic -->
+<script>
+(function() {
+    const btn = document.getElementById('soundSettingsBtn');
+    const popover = document.getElementById('soundSettingsPopover');
+    const masterToggle = document.getElementById('soundMasterToggle');
+    const masterIcon = document.getElementById('soundMasterIcon');
+    const typeTogglesContainer = document.getElementById('soundTypeToggles');
+
+    // Sync UI with SoundManager prefs
+    function syncUI() {
+        const p = SoundManager.prefs;
+        masterToggle.checked = p.enabled;
+        masterIcon.className = p.enabled ? 'fas fa-volume-up' : 'fas fa-volume-mute text-slate-500';
+        document.querySelectorAll('.sound-toggle').forEach(t => {
+            t.checked = p[t.dataset.sound];
+            t.disabled = !p.enabled;
+        });
+    }
+    syncUI();
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!popover.contains(e.target) && e.target !== btn) popover.classList.add('hidden');
+    });
+
+    masterToggle.addEventListener('change', () => {
+        SoundManager.updatePref('enabled', masterToggle.checked);
+        syncUI();
+    });
+    document.querySelectorAll('.sound-toggle').forEach(t => {
+        t.addEventListener('change', () => {
+            SoundManager.updatePref(t.dataset.sound, t.checked);
+        });
+    });
+})();
 </script>
 
 <!-- Ensure map refreshes after returning from edit page (bfcache) -->

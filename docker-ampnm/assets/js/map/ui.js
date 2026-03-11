@@ -40,6 +40,7 @@ MapApp.ui = {
             resetMapBgBtn: document.getElementById('resetMapBgBtn'),
             mapBgUpload: document.getElementById('mapBgUpload'),
             placeDeviceBtn: document.getElementById('placeDeviceBtn'),
+            addGroupBoxBtn: document.getElementById('addGroupBoxBtn'),
             placeDeviceModal: document.getElementById('placeDeviceModal'),
             closePlaceDeviceModal: document.getElementById('closePlaceDeviceModal'),
             placeDeviceList: document.getElementById('placeDeviceList'),
@@ -78,9 +79,11 @@ MapApp.ui = {
             window.notyf.error('You do not have permission to edit connections.');
             return;
         }
-        // Explicitly cast edgeId to a Number to ensure type consistency
-        const edge = MapApp.state.edges.get(Number(edgeId));
-        console.log('openEdgeModal called with edge ID:', edgeId);
+        // Try both string and number ID lookups for vis.js compatibility
+        let edge = MapApp.state.edges.get(edgeId);
+        if (!edge && !isNaN(edgeId)) edge = MapApp.state.edges.get(Number(edgeId));
+        if (!edge && typeof edgeId === 'number') edge = MapApp.state.edges.get(String(edgeId));
+        console.log('openEdgeModal called with edge ID:', edgeId, 'type:', typeof edgeId);
         console.log('Retrieved edge object:', edge);
         if (!edge) {
             console.error('Error: Edge object not found for ID:', edgeId);
@@ -89,7 +92,151 @@ MapApp.ui = {
         }
         document.getElementById('edgeId').value = edge.id;
         document.getElementById('connectionType').value = edge.connection_type || '';
-        openModal('edgeModal'); // Call the shared openModal function
+
+        // Use loose comparison for node lookup (MySQL IDs can be string or number)
+        const allNodes = MapApp.state.nodes.get();
+        const sourceNode = allNodes.find(n => n.id == edge.from);
+        const targetNode = allNodes.find(n => n.id == edge.to);
+
+        const srcNameEl = document.getElementById('edgeSourceDeviceName');
+        const tgtNameEl = document.getElementById('edgeTargetDeviceName');
+        srcNameEl.textContent = sourceNode ? sourceNode.deviceData.name : 'Source';
+        tgtNameEl.textContent = targetNode ? targetNode.deviceData.name : 'Target';
+
+        // Populate port dropdowns with used-port filtering
+        MapApp.ui._populatePortSelectAsync('edgeSourcePort', sourceNode, edge.source_port_label || '', edge.id);
+        MapApp.ui._populatePortSelectAsync('edgeTargetPort', targetNode, edge.target_port_label || '', edge.id);
+
+        MapApp.ui._updatePortPreview();
+        openModal('edgeModal');
+    },
+
+    /**
+     * Populate port select with ports from port_config and disable already-used ports.
+     * @param {string} selectId - DOM id of the <select>
+     * @param {object} node - vis.js node with deviceData
+     * @param {string} selectedValue - currently selected port label
+     * @param {number|string} currentEdgeId - the edge being edited (so its ports stay selectable)
+     */
+    _populatePortSelectAsync: (selectId, node, selectedValue, currentEdgeId) => {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '<option value="">None</option>';
+
+        if (!node || !node.deviceData) return;
+
+        const deviceId = node.deviceData.id;
+        const deviceType = node.deviceData.type || 'server';
+
+        // Generate ports from port_config (custom) or fallback to type defaults
+        const portObjects = MapApp.ui._getPortObjectsFromConfig(node.deviceData);
+
+        // Fetch used ports for this device, excluding current edge
+        fetch(`api.php?action=get_device_used_ports&device_id=${encodeURIComponent(deviceId)}&exclude_edge_id=${encodeURIComponent(currentEdgeId || '')}`)
+            .then(r => r.json())
+            .then(data => {
+                const usedSet = new Set((data.ports || []).map(p => p.toLowerCase()));
+                portObjects.forEach(po => {
+                    const opt = document.createElement('option');
+                    opt.value = po.name;
+                    const isUsed = usedSet.has(po.name.toLowerCase());
+                    let label = po.name;
+                    if (po.vlan) label += ` [VLAN ${po.vlan}]`;
+                    if (isUsed) label += ' (In Use)';
+                    opt.textContent = label;
+                    opt.disabled = isUsed;
+                    opt.style.color = isUsed ? '#f59e0b' : '';
+                    if (po.name === selectedValue) { opt.selected = true; opt.disabled = false; opt.textContent = po.name + (po.vlan ? ` [VLAN ${po.vlan}]` : ''); }
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(() => {
+                portObjects.forEach(po => {
+                    const opt = document.createElement('option');
+                    opt.value = po.name;
+                    opt.textContent = po.name + (po.vlan ? ` [VLAN ${po.vlan}]` : '');
+                    if (po.name === selectedValue) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            });
+    },
+
+    /**
+     * Get port list from device's port_config JSON or fall back to type-based defaults
+     */
+    _getPortsFromConfig: (deviceData) => {
+        return MapApp.ui._getPortObjectsFromConfig(deviceData).map(po => po.name);
+    },
+
+    /**
+     * Get port objects (with VLAN info) from device's port_config JSON or type defaults
+     */
+    _getPortObjectsFromConfig: (deviceData) => {
+        if (deviceData.port_config) {
+            try {
+                const groups = typeof deviceData.port_config === 'string' ? JSON.parse(deviceData.port_config) : deviceData.port_config;
+                if (Array.isArray(groups) && groups.length > 0) {
+                    const ports = [];
+                    groups.forEach(g => {
+                        for (let i = 0; i < (g.count || 0); i++) {
+                            ports.push({ name: (g.prefix || '') + ((g.start || 0) + i), vlan: g.vlan || '' });
+                        }
+                    });
+                    return ports;
+                }
+            } catch (e) { /* fall through */ }
+        }
+        return MapApp.ui._generatePortOptions(deviceData.type || 'server').map(p => ({ name: p, vlan: '' }));
+    },
+
+    _populatePortSelect: (selectId, node, selectedValue) => {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '<option value="">None</option>';
+        if (!node || !node.deviceData) return;
+        const ports = MapApp.ui._getPortsFromConfig(node.deviceData);
+        ports.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            if (p === selectedValue) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    },
+
+    _generatePortOptions: (deviceType) => {
+        const ports = [];
+        const dt = (deviceType || '').toLowerCase();
+
+        if (dt === 'switch' || dt === 'network_switch' || dt.includes('switch')) {
+            for (let i = 1; i <= 24; i++) ports.push(`G0/${i}`);
+            for (let i = 1; i <= 4; i++) ports.push(`SFP0${i}`);
+        } else if (dt === 'router' || dt.includes('router')) {
+            for (let i = 0; i <= 3; i++) ports.push(`G0/${i}`);
+            for (let i = 0; i <= 1; i++) ports.push(`S0/${i}`);
+            ports.push('SFP01');
+        } else if (dt === 'firewall' || dt.includes('firewall') || dt.includes('security')) {
+            for (let i = 0; i <= 7; i++) ports.push(`G0/${i}`);
+            for (let i = 0; i <= 1; i++) ports.push(`Mgmt0/${i}`);
+        } else {
+            // Server / generic - 4 GigE ports
+            for (let i = 0; i <= 3; i++) ports.push(`G0/${i}`);
+        }
+        return ports;
+    },
+
+    _updatePortPreview: () => {
+        const srcPort = document.getElementById('edgeSourcePort').value;
+        const tgtPort = document.getElementById('edgeTargetPort').value;
+        const preview = document.getElementById('portPreview');
+        const srcLabel = document.getElementById('portPreviewSource');
+        const tgtLabel = document.getElementById('portPreviewTarget');
+
+        if (srcPort || tgtPort) {
+            preview.classList.remove('hidden');
+            srcLabel.textContent = srcPort || '—';
+            tgtLabel.textContent = tgtPort || '—';
+        } else {
+            preview.classList.add('hidden');
+        }
     },
 
     updateAndAnimateEdges: () => {
@@ -104,7 +251,7 @@ MapApp.ui = {
                 const targetStatus = deviceStatusMap.get(edge.to);
                 const isOffline = sourceStatus === 'offline' || targetStatus === 'offline';
                 const isActive = sourceStatus === 'online' && targetStatus === 'online';
-                const color = isOffline ? MapApp.config.statusColorMap.offline : (MapApp.config.edgeColorMap[edge.connection_type] || MapApp.config.edgeColorMap.cat5);
+                const color = isOffline ? MapApp.config.statusColorMap.offline : (MapApp.config.edgeColorMap[edge.connection_type] || MapApp.config.edgeColorMap.cat6);
                 let dashes = false;
                 if (isActive) { dashes = animatedDashes; } 
                 else if (edge.connection_type === 'wifi' || edge.connection_type === 'radio' || edge.connection_type === 'logical-tunneling') { dashes = [5, 5]; }

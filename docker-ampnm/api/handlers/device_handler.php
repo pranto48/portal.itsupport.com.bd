@@ -424,12 +424,13 @@ switch ($action) {
 
         $sql = "
             SELECT 
-                d.id, d.name, d.ip, d.check_port, d.monitor_method, d.type, d.description, d.enabled, d.x, d.y, d.map_id,
+                d.id, d.name, d.ip, d.check_port, d.monitor_method, d.type, d.subchoice, d.description, d.enabled, d.x, d.y, d.map_id,
                 d.ping_interval, d.icon_size, d.name_text_size, d.icon_url,
                 d.router_api_username, d.router_api_password, d.router_api_port,
                 d.warning_latency_threshold, d.warning_packetloss_threshold,
                 d.critical_latency_threshold, d.critical_packetloss_threshold,
                 d.last_avg_time, d.last_ttl, d.show_live_ping, d.status, d.last_seen,
+                d.port_config,
                 m.name as map_name,
                 p.output as last_ping_output
             FROM 
@@ -486,16 +487,18 @@ switch ($action) {
                 exit;
             }
 
-            $sql = "INSERT INTO devices (user_id, name, ip, check_port, monitor_method, type, description, map_id, x, y, ping_interval, icon_size, name_text_size, icon_url, router_api_username, router_api_password, router_api_port, warning_latency_threshold, warning_packetloss_threshold, critical_latency_threshold, critical_packetloss_threshold, show_live_ping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO devices (user_id, name, ip, check_port, monitor_method, type, subchoice, description, map_id, x, y, ping_interval, icon_size, name_text_size, icon_url, router_api_username, router_api_password, router_api_port, warning_latency_threshold, warning_packetloss_threshold, critical_latency_threshold, critical_packetloss_threshold, show_live_ping, port_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
+            $portConfigValue = isset($input['port_config']) ? (is_string($input['port_config']) ? $input['port_config'] : json_encode($input['port_config'])) : null;
             $stmt->execute([
-                $current_user_id, $input['name'], $input['ip'] ?? null, $input['check_port'] ?? null, $input['monitor_method'] ?? 'ping', $input['type'], $input['description'] ?? null, $input['map_id'] ?? null,
+                $current_user_id, $input['name'], $input['ip'] ?? null, $input['check_port'] ?? null, $input['monitor_method'] ?? 'ping', $input['type'], $input['subchoice'] ?? 0, $input['description'] ?? null, $input['map_id'] ?? null,
                 $input['x'] ?? null, $input['y'] ?? null,
                 $input['ping_interval'] ?? null, $input['icon_size'] ?? 50, $input['name_text_size'] ?? 14, $input['icon_url'] ?? null,
                 $input['router_api_username'] ?? null, $input['router_api_password'] ?? null, $input['router_api_port'] ?? null,
                 $input['warning_latency_threshold'] ?? null, $input['warning_packetloss_threshold'] ?? null,
                 $input['critical_latency_threshold'] ?? null, $input['critical_packetloss_threshold'] ?? null,
-                ($input['show_live_ping'] ?? false) ? 1 : 0
+                ($input['show_live_ping'] ?? false) ? 1 : 0,
+                $portConfigValue
             ]);
             $lastId = $pdo->lastInsertId();
             $stmt = $pdo->prepare("SELECT * FROM devices WHERE id = ? AND user_id = ?");
@@ -533,7 +536,7 @@ switch ($action) {
                 exit;
             }
 
-            $allowed_fields = ['name', 'ip', 'check_port', 'monitor_method', 'type', 'subchoice', 'description', 'x', 'y', 'map_id', 'ping_interval', 'icon_size', 'name_text_size', 'icon_url', 'router_api_username', 'router_api_password', 'router_api_port', 'warning_latency_threshold', 'warning_packetloss_threshold', 'critical_latency_threshold', 'critical_packetloss_threshold', 'show_live_ping', 'status', 'last_seen', 'last_avg_time', 'last_ttl']; // Added status and last_seen
+            $allowed_fields = ['name', 'ip', 'check_port', 'monitor_method', 'type', 'subchoice', 'description', 'x', 'y', 'map_id', 'ping_interval', 'icon_size', 'name_text_size', 'icon_url', 'router_api_username', 'router_api_password', 'router_api_port', 'warning_latency_threshold', 'warning_packetloss_threshold', 'critical_latency_threshold', 'critical_packetloss_threshold', 'show_live_ping', 'status', 'last_seen', 'last_avg_time', 'last_ttl', 'port_config']; // Added status, last_seen, port_config
             if (!$hasSubchoice) {
                 $allowed_fields = array_values(array_diff($allowed_fields, ['subchoice']));
             }
@@ -682,7 +685,7 @@ switch ($action) {
                 $suffix++;
             }
 
-            $insertSql = "INSERT INTO devices (user_id, name, ip, check_port, monitor_method, type, description, map_id, x, y, ping_interval, icon_size, name_text_size, icon_url, router_api_username, router_api_password, router_api_port, warning_latency_threshold, warning_packetloss_threshold, critical_latency_threshold, critical_packetloss_threshold, show_live_ping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $insertSql = "INSERT INTO devices (user_id, name, ip, check_port, monitor_method, type, subchoice, port_config, description, map_id, x, y, ping_interval, icon_size, name_text_size, icon_url, router_api_username, router_api_password, router_api_port, warning_latency_threshold, warning_packetloss_threshold, critical_latency_threshold, critical_packetloss_threshold, show_live_ping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $insertStmt = $pdo->prepare($insertSql);
             $insertStmt->execute([
                 $current_user_id,
@@ -691,6 +694,8 @@ switch ($action) {
                 $device['check_port'],
                 $device['monitor_method'] ?? 'ping',
                 $device['type'],
+                $device['subchoice'] ?? 0,
+                $device['port_config'] ?? null,
                 $device['description'],
                 $device['map_id'],
                 $device['x'],
@@ -857,7 +862,7 @@ switch ($action) {
                             $new_source_id,
                             $new_target_id,
                             $map_id, // Assign to the current map_id
-                            $edge['connection_type'] ?? 'cat5'
+                            $edge['connection_type'] ?? 'cat6'
                         ]);
                     }
                 }

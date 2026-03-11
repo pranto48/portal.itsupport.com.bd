@@ -44,7 +44,7 @@ switch ($action) {
             $updates = $input['updates'] ?? [];
             if (!$id || empty($updates)) { http_response_code(400); echo json_encode(['error' => 'Map ID and updates are required']); exit; }
             
-            $allowed_fields = ['name', 'background_color', 'background_image_url', 'public_view_enabled'];
+            $allowed_fields = ['name', 'background_color', 'background_image_url', 'public_view_enabled', 'offline_delay_seconds'];
             $fields = []; $params = [];
             foreach ($updates as $key => $value) {
                 if (in_array($key, $allowed_fields)) {
@@ -96,9 +96,17 @@ switch ($action) {
     case 'create_edge':
         if ($user_role !== 'admin') { http_response_code(403); echo json_encode(['error' => 'Forbidden: Only admin can create edges.']); exit; }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $sql = "INSERT INTO device_edges (user_id, source_id, target_id, map_id, connection_type) VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO device_edges (user_id, source_id, target_id, map_id, connection_type, source_port_label, target_port_label) VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$current_user_id, $input['source_id'], $input['target_id'], $input['map_id'], $input['connection_type'] ?? 'cat5']);
+            $stmt->execute([
+                $current_user_id, 
+                $input['source_id'], 
+                $input['target_id'], 
+                $input['map_id'], 
+                $input['connection_type'] ?? 'cat5',
+                $input['source_port_label'] ?? null,
+                $input['target_port_label'] ?? null
+            ]);
             $lastId = $pdo->lastInsertId();
             $stmt = $pdo->prepare("SELECT * FROM device_edges WHERE id = ? AND user_id = ?");
             $stmt->execute([$lastId, $current_user_id]);
@@ -112,9 +120,11 @@ switch ($action) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = $input['id'] ?? null;
             $connection_type = $input['connection_type'] ?? 'cat5';
+            $source_port_label = $input['source_port_label'] ?? null;
+            $target_port_label = $input['target_port_label'] ?? null;
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'Edge ID is required']); exit; }
-            $stmt = $pdo->prepare("UPDATE device_edges SET connection_type = ? WHERE id = ? AND user_id = ?");
-            $stmt->execute([$connection_type, $id, $current_user_id]);
+            $stmt = $pdo->prepare("UPDATE device_edges SET connection_type = ?, source_port_label = ?, target_port_label = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$connection_type, $source_port_label, $target_port_label, $id, $current_user_id]);
             $stmt = $pdo->prepare("SELECT * FROM device_edges WHERE id = ? AND user_id = ?");
             $stmt->execute([$id, $current_user_id]);
             $edge = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -256,6 +266,32 @@ switch ($action) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to save uploaded file.']);
             }
+        }
+        break;
+
+    case 'get_device_used_ports':
+        $device_id = $_GET['device_id'] ?? null;
+        $exclude_edge_id = $_GET['exclude_edge_id'] ?? null;
+        if (!$device_id) { http_response_code(400); echo json_encode(['error' => 'device_id is required']); exit; }
+
+        try {
+            $stmt = $pdo->prepare("SELECT id, source_id, target_id, source_port_label, target_port_label FROM device_edges WHERE source_id = ? OR target_id = ?");
+            $stmt->execute([$device_id, $device_id]);
+            $edges = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $ports = [];
+            foreach ($edges as $e) {
+                // Skip the edge being currently edited so its port remains selectable
+                if ($exclude_edge_id && $e['id'] == $exclude_edge_id) continue;
+                if ($e['source_id'] == $device_id && !empty($e['source_port_label'])) {
+                    $ports[] = $e['source_port_label'];
+                }
+                if ($e['target_id'] == $device_id && !empty($e['target_port_label'])) {
+                    $ports[] = $e['target_port_label'];
+                }
+            }
+            echo json_encode(['ports' => array_values(array_unique($ports))]);
+        } catch (PDOException $ex) {
+            echo json_encode(['ports' => []]);
         }
         break;
 }

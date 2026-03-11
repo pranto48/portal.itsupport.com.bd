@@ -274,6 +274,12 @@ MapApp.mapManager = {
             mapEl.style.backgroundPosition = 'center';
             // Update public view link display
             MapApp.mapManager.updatePublicViewLink(currentMap.id, currentMap.public_view_enabled);
+            // Apply offline delay setting
+            const delaySeconds = currentMap.offline_delay_seconds || 5;
+            MapApp.config.offlineDelayMs = delaySeconds * 1000;
+            // Update offline delay badge in toolbar
+            const delayBadge = document.getElementById('offlineDelayValue');
+            if (delayBadge) delayBadge.textContent = delaySeconds;
         }
         
         // Correctly extract the 'devices' array from the API response
@@ -331,7 +337,19 @@ MapApp.mapManager = {
         MapApp.state.nodes.clear(); 
         MapApp.state.nodes.add(visNodes);
 
-        const visEdges = edgeData.map(e => ({ id: e.id, from: e.source_id, to: e.target_id, connection_type: e.connection_type, label: e.connection_type }));
+        const visEdges = edgeData.map(e => {
+            let edgeLabel = e.connection_type;
+            if (e.source_port_label && e.target_port_label) {
+                edgeLabel = `${e.source_port_label} ↔ ${e.target_port_label}`;
+            } else if (e.source_port_label || e.target_port_label) {
+                edgeLabel = `${e.source_port_label || '—'} ↔ ${e.target_port_label || '—'}`;
+            }
+            // Build rich tooltip for edge
+            const srcDevice = deviceData.find(d => d.id === e.source_id || d.id == e.source_id);
+            const tgtDevice = deviceData.find(d => d.id === e.target_id || d.id == e.target_id);
+            const title = MapApp.utils.buildEdgeTitle(e, srcDevice, tgtDevice);
+            return { id: e.id, from: e.source_id, to: e.target_id, connection_type: e.connection_type, source_port_label: e.source_port_label, target_port_label: e.target_port_label, label: edgeLabel, title };
+        });
         console.log('visEdges array before adding to dataset:', visEdges);
         MapApp.state.edges.clear(); 
         MapApp.state.edges.add(visEdges);

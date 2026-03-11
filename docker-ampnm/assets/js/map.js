@@ -30,6 +30,7 @@ function initMap() {
             clearInterval(state.globalRefreshIntervalId);
             state.globalRefreshIntervalId = null;
         }
+        deviceManager.stopAgentPolling();
         if (state.network) {
             state.network.destroy();
             state.network = null;
@@ -66,18 +67,31 @@ function initMap() {
             e.preventDefault();
             const id = document.getElementById('edgeId').value;
             const connection_type = document.getElementById('connectionType').value;
+            const source_port_label = document.getElementById('edgeSourcePort').value || null;
+            const target_port_label = document.getElementById('edgeTargetPort').value || null;
             try {
-                await api.post('update_edge', { id, connection_type });
+                await api.post('update_edge', { id, connection_type, source_port_label, target_port_label });
                 closeModal('edgeModal');
-                state.edges.update({ id, connection_type, label: connection_type });
+                // Build label with port info
+                let edgeLabel = connection_type;
+                if (source_port_label && target_port_label) {
+                    edgeLabel = `${source_port_label} ↔ ${target_port_label}`;
+                } else if (source_port_label || target_port_label) {
+                    edgeLabel = `${source_port_label || '—'} ↔ ${target_port_label || '—'}`;
+                }
+                state.edges.update({ id, connection_type, source_port_label, target_port_label, label: edgeLabel });
                 window.notyf.success('Connection updated.');
                 // Trigger color update
-                MapApp.ui.updateEdgeColorsAndDashes();
+                MapApp.ui.updateAndAnimateEdges();
             } catch (error) {
                 console.error("Failed to update connection:", error);
                 window.notyf.error(error.message || "An error occurred while updating connection.");
             }
         });
+
+        // Port select change listeners for live preview
+        document.getElementById('edgeSourcePort').addEventListener('change', () => MapApp.ui._updatePortPreview());
+        document.getElementById('edgeTargetPort').addEventListener('change', () => MapApp.ui._updatePortPreview());
     } else {
         // Disable edge form elements for viewers
         if (els.edgeForm) {
@@ -273,8 +287,49 @@ function initMap() {
             state.network.addEdgeMode();
             window.notyf.info('Click on a node to start a connection.');
         });
+
+        // Add Group Box button
+        els.addGroupBoxBtn.addEventListener('click', async () => {
+            if (!state.currentMapId) {
+                window.notyf.error('No map selected.');
+                return;
+            }
+            const name = prompt('Enter a name for the group box:', 'Group');
+            if (!name || !name.trim()) return;
+            try {
+                const viewPosition = state.network.getViewPosition();
+                const canvasPosition = state.network.canvas.DOMtoCanvas(viewPosition);
+                const newDevice = await api.post('create_device', {
+                    name: name.trim(),
+                    type: 'box',
+                    map_id: state.currentMapId,
+                    x: canvasPosition.x,
+                    y: canvasPosition.y
+                });
+                const visNode = {
+                    id: newDevice.id,
+                    label: newDevice.name,
+                    title: newDevice.name,
+                    x: newDevice.x,
+                    y: newDevice.y,
+                    shape: 'box',
+                    color: { background: 'rgba(49, 65, 85, 0.5)', border: '#475569' },
+                    font: { color: 'white', size: 16, multi: true },
+                    margin: 20,
+                    widthConstraint: { minimum: 150 },
+                    heightConstraint: { minimum: 80 },
+                    deviceData: newDevice
+                };
+                state.nodes.add(visNode);
+                window.notyf.success(`Group box "${name.trim()}" added.`);
+            } catch (error) {
+                console.error('Failed to create group box:', error);
+                window.notyf.error(error.message || 'Failed to create group box.');
+            }
+        });
     } else {
         if (els.addEdgeBtn) els.addEdgeBtn.disabled = true;
+        if (els.addGroupBoxBtn) els.addGroupBoxBtn.disabled = true;
     }
 
     els.cancelEdgeBtn.addEventListener('click', () => closeModal('edgeModal'));
@@ -368,6 +423,7 @@ function initMap() {
                 document.getElementById('mapBgColor').value = currentMap.background_color || '#1e293b';
                 document.getElementById('mapBgColorHex').value = currentMap.background_color || '#1e293b';
                 document.getElementById('mapBgImageUrl').value = currentMap.background_image_url || '';
+                document.getElementById('offlineDelaySeconds').value = currentMap.offline_delay_seconds ?? 5;
                 els.publicViewToggle.checked = currentMap.public_view_enabled;
                 MapApp.mapManager.updatePublicViewLink(currentMap.id, currentMap.public_view_enabled);
                 openModal('mapSettingsModal');
@@ -409,10 +465,12 @@ function initMap() {
 
         els.mapSettingsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const offlineDelay = parseInt(document.getElementById('offlineDelaySeconds').value, 10);
             const updates = {
                 background_color: document.getElementById('mapBgColorHex').value,
                 background_image_url: document.getElementById('mapBgImageUrl').value,
-                public_view_enabled: els.publicViewToggle.checked
+                public_view_enabled: els.publicViewToggle.checked,
+                offline_delay_seconds: (offlineDelay >= 1 && offlineDelay <= 300) ? offlineDelay : 5
             };
             try {
                 await api.post('update_map', { id: state.currentMapId, updates });
@@ -556,6 +614,9 @@ function initMap() {
 
     // Initial Load
     (async () => {
+        // Start agent registration polling for real-time notifications
+        deviceManager.startAgentPolling();
+
         // Set live refresh to ON by default for viewers
         if (window.userRole === 'viewer') {
             els.liveRefreshToggle.checked = true;

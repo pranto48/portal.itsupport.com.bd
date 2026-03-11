@@ -124,7 +124,8 @@ try {
             `background_color` VARCHAR(20) NULL,
             `background_image_url` VARCHAR(255) NULL,
             `is_default` BOOLEAN DEFAULT FALSE,
-            `public_view_enabled` BOOLEAN DEFAULT FALSE, /* NEW COLUMN */
+            `public_view_enabled` BOOLEAN DEFAULT FALSE,
+            `offline_delay_seconds` INT(6) NOT NULL DEFAULT 5,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
@@ -172,7 +173,7 @@ try {
             `source_id` INT(6) UNSIGNED NOT NULL,
             `target_id` INT(6) UNSIGNED NOT NULL,
             `map_id` INT(6) UNSIGNED NOT NULL,
-            `connection_type` VARCHAR(50) DEFAULT 'cat5',
+            `connection_type` VARCHAR(50) DEFAULT 'cat6',
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
             FOREIGN KEY (`source_id`) REFERENCES `devices`(`id`) ON DELETE CASCADE,
@@ -242,6 +243,184 @@ try {
             `setting_value` TEXT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR AGENT TOKENS (Windows Agent authentication)
+        "CREATE TABLE IF NOT EXISTS `agent_tokens` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT(6) UNSIGNED NOT NULL,
+            `name` VARCHAR(100) NOT NULL,
+            `token` VARCHAR(255) NOT NULL UNIQUE,
+            `enabled` BOOLEAN DEFAULT TRUE,
+            `last_used_at` TIMESTAMP NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR HOST METRICS (Windows Agent telemetry)
+        "CREATE TABLE IF NOT EXISTS `host_metrics` (
+            `id` INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `hostname` VARCHAR(255) NOT NULL,
+            `ip_address` VARCHAR(45) NULL,
+            `os_version` VARCHAR(255) NULL,
+            `cpu_usage` DECIMAL(5,2) NULL,
+            `memory_usage` DECIMAL(5,2) NULL,
+            `memory_total` DECIMAL(12,2) NULL,
+            `disk_usage` DECIMAL(5,2) NULL,
+            `disk_total` DECIMAL(12,2) NULL,
+            `gpu_usage` DECIMAL(5,2) NULL,
+            `network_in` BIGINT NULL,
+            `network_out` BIGINT NULL,
+            `uptime_seconds` BIGINT NULL,
+            `boot_time` TIMESTAMP NULL,
+            `status` VARCHAR(20) DEFAULT 'online',
+            `agent_token_id` INT(6) UNSIGNED NULL,
+            `first_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY `hostname_unique` (`hostname`),
+            FOREIGN KEY (`agent_token_id`) REFERENCES `agent_tokens`(`id`) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR HOST METRICS HISTORY
+        "CREATE TABLE IF NOT EXISTS `host_metrics_history` (
+            `id` INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `hostname` VARCHAR(255) NOT NULL,
+            `cpu_usage` DECIMAL(5,2) NULL,
+            `memory_usage` DECIMAL(5,2) NULL,
+            `memory_total` DECIMAL(12,2) NULL,
+            `disk_usage` DECIMAL(5,2) NULL,
+            `disk_total` DECIMAL(12,2) NULL,
+            `gpu_usage` DECIMAL(5,2) NULL,
+            `network_in` BIGINT NULL,
+            `network_out` BIGINT NULL,
+            `recorded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX `idx_hostname_recorded` (`hostname`, `recorded_at` DESC)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR HOST PROCESSES
+        "CREATE TABLE IF NOT EXISTS `host_processes` (
+            `id` INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `hostname` VARCHAR(255) NOT NULL,
+            `process_name` VARCHAR(255) NOT NULL,
+            `process_type` ENUM('process','service') DEFAULT 'process',
+            `pid` INT(10) NULL,
+            `cpu_percent` DECIMAL(5,2) NULL,
+            `memory_mb` DECIMAL(10,2) NULL,
+            `status` VARCHAR(50) NULL,
+            `recorded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX `idx_hostname_recorded` (`hostname`, `recorded_at` DESC)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR HOST ALERT SETTINGS (global thresholds per user)
+        "CREATE TABLE IF NOT EXISTS `host_alert_settings` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT(6) UNSIGNED NOT NULL,
+            `enabled` BOOLEAN DEFAULT TRUE,
+            `cpu_warning_threshold` DECIMAL(5,2) DEFAULT 80.00,
+            `cpu_critical_threshold` DECIMAL(5,2) DEFAULT 95.00,
+            `memory_warning_threshold` DECIMAL(5,2) DEFAULT 80.00,
+            `memory_critical_threshold` DECIMAL(5,2) DEFAULT 95.00,
+            `disk_warning_threshold` DECIMAL(5,2) DEFAULT 80.00,
+            `disk_critical_threshold` DECIMAL(5,2) DEFAULT 95.00,
+            `gpu_warning_threshold` DECIMAL(5,2) DEFAULT 80.00,
+            `gpu_critical_threshold` DECIMAL(5,2) DEFAULT 95.00,
+            `cooldown_minutes` INT(11) DEFAULT 30,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY `user_id_unique` (`user_id`),
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR PER-HOST ALERT OVERRIDES
+        "CREATE TABLE IF NOT EXISTS `host_alert_overrides` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `hostname` VARCHAR(255) NOT NULL,
+            `host_ip` VARCHAR(45) NULL,
+            `enabled` BOOLEAN DEFAULT TRUE,
+            `cpu_warning` DECIMAL(5,2) NULL,
+            `cpu_critical` DECIMAL(5,2) NULL,
+            `memory_warning` DECIMAL(5,2) NULL,
+            `memory_critical` DECIMAL(5,2) NULL,
+            `disk_warning` DECIMAL(5,2) NULL,
+            `disk_critical` DECIMAL(5,2) NULL,
+            `gpu_warning` DECIMAL(5,2) NULL,
+            `gpu_critical` DECIMAL(5,2) NULL,
+            `status_delay_seconds` INT(11) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY `hostname_unique` (`hostname`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR FLOOR PLANS
+        "CREATE TABLE IF NOT EXISTS `floor_plans` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT(6) UNSIGNED NOT NULL,
+            `name` VARCHAR(255) NOT NULL DEFAULT 'Floor Plan',
+            `image_url` TEXT NULL,
+            `width` INT DEFAULT 1200,
+            `height` INT DEFAULT 800,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR RACK LOCATIONS
+        "CREATE TABLE IF NOT EXISTS `rack_locations` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `floor_plan_id` INT(6) UNSIGNED NOT NULL,
+            `name` VARCHAR(255) NOT NULL,
+            `x` DECIMAL(10,2) DEFAULT 0,
+            `y` DECIMAL(10,2) DEFAULT 0,
+            `rack_units` INT DEFAULT 42,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (`floor_plan_id`) REFERENCES `floor_plans`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR PATCH PANELS
+        "CREATE TABLE IF NOT EXISTS `patch_panels` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `rack_id` INT(6) UNSIGNED NOT NULL,
+            `name` VARCHAR(255) NOT NULL,
+            `port_count` INT DEFAULT 24,
+            `rack_position` INT DEFAULT 1,
+            `panel_type` VARCHAR(50) DEFAULT 'rj45',
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (`rack_id`) REFERENCES `rack_locations`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR SWITCH PORTS
+        "CREATE TABLE IF NOT EXISTS `switch_ports` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `device_id` INT(6) UNSIGNED NOT NULL,
+            `port_number` INT NOT NULL,
+            `port_label` VARCHAR(50) NULL,
+            `status` VARCHAR(50) DEFAULT 'inactive',
+            `speed` VARCHAR(20) DEFAULT '1G',
+            `vlan` VARCHAR(50) NULL,
+            `connected_device` VARCHAR(255) NULL,
+            `notes` TEXT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (`device_id`) REFERENCES `devices`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+        // TABLE FOR CABLE RUNS
+        "CREATE TABLE IF NOT EXISTS `cable_runs` (
+            `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `floor_plan_id` INT(6) UNSIGNED NULL,
+            `cable_type` VARCHAR(50) DEFAULT 'cat6',
+            `cable_color` VARCHAR(50) DEFAULT 'blue',
+            `cable_length` VARCHAR(50) NULL,
+            `label` VARCHAR(255) NULL,
+            `source_type` VARCHAR(50) NOT NULL DEFAULT 'patch_panel',
+            `source_id` INT(6) UNSIGNED NOT NULL,
+            `source_port` INT NOT NULL,
+            `dest_type` VARCHAR(50) NOT NULL DEFAULT 'switch',
+            `dest_id` INT(6) UNSIGNED NOT NULL,
+            `dest_port` INT NOT NULL,
+            `notes` TEXT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (`floor_plan_id`) REFERENCES `floor_plans`(`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
     ];
 
@@ -325,7 +504,74 @@ try {
         $pdo->exec("ALTER TABLE `devices` ADD COLUMN `router_api_port` INT(5) NULL AFTER `router_api_password`;");
         message("Upgraded 'devices' table: added 'router_api_port' column.");
     }
+    // NEW MIGRATION: Add port labels to device_edges for Cisco Packet Tracer-style port mapping
+    if (!columnExists($pdo, $dbname, 'device_edges', 'source_port_label')) {
+        $pdo->exec("ALTER TABLE `device_edges` ADD COLUMN `source_port_label` VARCHAR(50) NULL AFTER `connection_type`;");
+        message("Upgraded 'device_edges' table: added 'source_port_label' column.");
+    }
+    if (!columnExists($pdo, $dbname, 'device_edges', 'target_port_label')) {
+        $pdo->exec("ALTER TABLE `device_edges` ADD COLUMN `target_port_label` VARCHAR(50) NULL AFTER `source_port_label`;");
+        message("Upgraded 'device_edges' table: added 'target_port_label' column.");
+    }
+    // NEW MIGRATION: Add port_config column for custom port type/count definitions per device
+    if (!columnExists($pdo, $dbname, 'devices', 'port_config')) {
+        $pdo->exec("ALTER TABLE `devices` ADD COLUMN `port_config` TEXT NULL AFTER `subchoice`;");
+        message("Migrated 'devices' table: added 'port_config' column for custom port layouts.");
+    }
+    // MIGRATION: Rename cat5 to cat6 in device_edges
+    $pdo->exec("UPDATE `device_edges` SET `connection_type` = 'cat6' WHERE `connection_type` = 'cat5'");
+    message("Migrated 'device_edges': renamed 'cat5' connections to 'cat6'.");
 
+    // MIGRATION: Add canvas-related columns to rack_locations
+    if (!columnExists($pdo, $dbname, 'rack_locations', 'rotation')) {
+        $pdo->exec("ALTER TABLE `rack_locations` ADD COLUMN `rotation` INT DEFAULT 0 AFTER `rack_units`;");
+        message("Upgraded 'rack_locations' table: added 'rotation' column.");
+    }
+    if (!columnExists($pdo, $dbname, 'rack_locations', 'label_visible')) {
+        $pdo->exec("ALTER TABLE `rack_locations` ADD COLUMN `label_visible` TINYINT(1) DEFAULT 1 AFTER `rotation`;");
+        message("Upgraded 'rack_locations' table: added 'label_visible' column.");
+    }
+
+    // MIGRATION: Add floor_plan_devices table for placing devices on canvas
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `floor_plan_devices` (
+        `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `floor_plan_id` INT(6) UNSIGNED NOT NULL,
+        `device_id` INT(6) UNSIGNED NOT NULL,
+        `x` DECIMAL(10,2) DEFAULT 0,
+        `y` DECIMAL(10,2) DEFAULT 0,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`floor_plan_id`) REFERENCES `floor_plans`(`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`device_id`) REFERENCES `devices`(`id`) ON DELETE CASCADE,
+        UNIQUE KEY `unique_plan_device` (`floor_plan_id`, `device_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    message("Table 'floor_plan_devices' checked/created successfully.");
+
+    // MIGRATION: Add floor_plan_annotations table for labels and zones on canvas
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `floor_plan_annotations` (
+        `id` INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `floor_plan_id` INT(6) UNSIGNED NOT NULL,
+        `x` DECIMAL(10,2) DEFAULT 0,
+        `y` DECIMAL(10,2) DEFAULT 0,
+        `text` VARCHAR(500) DEFAULT 'Label',
+        `font_size` INT DEFAULT 14,
+        `color` VARCHAR(50) DEFAULT '#94a3b8',
+        `type` VARCHAR(20) DEFAULT 'label',
+        `width` INT NULL,
+        `height` INT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`floor_plan_id`) REFERENCES `floor_plans`(`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    message("Table 'floor_plan_annotations' checked/created successfully.");
+
+    // MIGRATION: Add width/height to floor_plans for canvas dimensions
+    if (!columnExists($pdo, $dbname, 'floor_plans', 'width')) {
+        $pdo->exec("ALTER TABLE `floor_plans` ADD COLUMN `width` INT DEFAULT 2000 AFTER `image_url`;");
+        message("Upgraded 'floor_plans' table: added 'width' column.");
+    }
+    if (!columnExists($pdo, $dbname, 'floor_plans', 'height')) {
+        $pdo->exec("ALTER TABLE `floor_plans` ADD COLUMN `height` INT DEFAULT 1500 AFTER `width`;");
+        message("Upgraded 'floor_plans' table: added 'height' column.");
+    }
 
     // Step 5: Check if the admin user has any maps
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM `maps` WHERE user_id = ?");
