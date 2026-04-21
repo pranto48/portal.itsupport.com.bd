@@ -30,6 +30,7 @@ const buildHash =
 const PORT = process.env.API_PORT || 3001;
 let dbClient = null;
 let dbType = process.env.DB_TYPE || "postgresql"; // postgresql or mysql
+let mysqlSupportsAddColumnIfNotExistsCache = null;
 
 // --- Database Connection ---
 async function connectDatabase(config) {
@@ -1202,6 +1203,34 @@ routes["GET /api/system/health"] = async (req, res) => {
     backup,
     app,
   });
+};
+
+routes["GET /api/system/schema-compat"] = async (req, res) => {
+  const user = getAuthUser(req);
+  if (!user) {
+    sendJson(res, 401, { message: "Not authenticated" });
+    return;
+  }
+
+  const table = "user_workspace_permissions";
+
+  try {
+    const tableExists = await columnExists(table, "user_id");
+    const officeEnabledExists =
+      tableExists && (await columnExists(table, "office_enabled"));
+    const personalEnabledExists =
+      tableExists && (await columnExists(table, "personal_enabled"));
+
+    sendJson(res, 200, {
+      table,
+      table_exists: tableExists,
+      office_enabled_exists: officeEnabledExists,
+      personal_enabled_exists: personalEnabledExists,
+    });
+  } catch (err) {
+    console.warn(`⚠️ Schema compatibility check failed: ${err.message}`);
+    sendJson(res, 503, { message: "Schema compatibility check unavailable" });
+  }
 };
 
 routes["GET /api/license/status"] = async (req, res) => {
@@ -2837,11 +2866,16 @@ async function initializeDatabase() {
         await loadLicenseCache();
         const envKey = process.env.APP_LICENSE_KEY;
         const storedKey = await getLicenseSetting("app_license_key");
-        const licenseKey = envKey || storedKey;
+        const hasEnvKey = Boolean(envKey && envKey.trim());
+        const hasStoredKey = Boolean(storedKey && String(storedKey).trim());
+        const licenseKey = hasEnvKey ? envKey : storedKey;
 
-        if (licenseKey) {
+        if (hasEnvKey || hasStoredKey) {
           if (envKey && envKey !== storedKey) {
             await setLicenseSetting("app_license_key", envKey);
+          }
+          if (!hasEnvKey && hasStoredKey) {
+            console.log("🔐 Using stored license key from database.");
           }
           console.log("🔑 Verifying license on startup...");
           const result = await verifyLicenseWithPortal(licenseKey, true);
