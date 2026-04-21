@@ -2895,11 +2895,16 @@ async function initializeDatabase() {
         await loadLicenseCache();
         const envKey = process.env.APP_LICENSE_KEY;
         const storedKey = await getLicenseSetting("app_license_key");
-        const licenseKey = envKey || storedKey;
+        const hasEnvKey = Boolean(envKey && envKey.trim());
+        const hasStoredKey = Boolean(storedKey && String(storedKey).trim());
+        const licenseKey = hasEnvKey ? envKey : storedKey;
 
-        if (licenseKey) {
+        if (hasEnvKey || hasStoredKey) {
           if (envKey && envKey !== storedKey) {
             await setLicenseSetting("app_license_key", envKey);
+          }
+          if (!hasEnvKey && hasStoredKey) {
+            console.log("🔐 Using stored license key from database.");
           }
           console.log("🔑 Verifying license on startup...");
           const result = await verifyLicenseWithPortal(licenseKey, true);
