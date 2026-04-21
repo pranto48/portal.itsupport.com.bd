@@ -1200,6 +1200,34 @@ routes["GET /api/system/health"] = async (req, res) => {
   });
 };
 
+routes["GET /api/system/schema-compat"] = async (req, res) => {
+  const user = getAuthUser(req);
+  if (!user) {
+    sendJson(res, 401, { message: "Not authenticated" });
+    return;
+  }
+
+  const table = "user_workspace_permissions";
+
+  try {
+    const tableExists = await columnExists(table, "user_id");
+    const officeEnabledExists =
+      tableExists && (await columnExists(table, "office_enabled"));
+    const personalEnabledExists =
+      tableExists && (await columnExists(table, "personal_enabled"));
+
+    sendJson(res, 200, {
+      table,
+      table_exists: tableExists,
+      office_enabled_exists: officeEnabledExists,
+      personal_enabled_exists: personalEnabledExists,
+    });
+  } catch (err) {
+    console.warn(`⚠️ Schema compatibility check failed: ${err.message}`);
+    sendJson(res, 503, { message: "Schema compatibility check unavailable" });
+  }
+};
+
 routes["GET /api/license/status"] = async (req, res) => {
   await loadLicenseCache();
   const licenseKey = await getLicenseSetting("app_license_key");
