@@ -30,6 +30,7 @@ const buildHash =
 const PORT = process.env.API_PORT || 3001;
 let dbClient = null;
 let dbType = process.env.DB_TYPE || "postgresql"; // postgresql or mysql
+let mysqlSupportsAddColumnIfNotExistsCache = null;
 
 // --- Database Connection ---
 async function connectDatabase(config) {
@@ -2753,26 +2754,99 @@ async function ensureCompatibilityMigrations() {
 
   for (const col of requiredColumns) {
     const exists = await columnExists(col.table, col.column);
-    if (exists) continue;
+    if (exists) {
+      console.log(
+        `ℹ️ Column ${col.table}.${col.column} already present / skipped`,
+      );
+      continue;
+    }
 
     try {
       if (dbType === "postgresql") {
         await query(
-          `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.pgType}`,
+          `ALTER TABLE ${col.table} ADD COLUMN IF NOT EXISTS ${col.column} ${col.pgType}`,
         );
       } else {
+        const mySqlSupportsIfNotExists = await mysqlSupportsAddColumnIfNotExists();
+        const addColumnClause = mySqlSupportsIfNotExists
+          ? `ADD COLUMN IF NOT EXISTS ${col.column} ${col.mySqlType}`
+          : `ADD COLUMN ${col.column} ${col.mySqlType}`;
         await query(
-          `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.mySqlType}`,
+          `ALTER TABLE ${col.table} ${addColumnClause}`,
         );
       }
-      console.log(`✅ Added missing column ${col.table}.${col.column}`);
+      console.log(
+        `✅ Column ${col.table}.${col.column} added successfully`,
+      );
       delete tableColumnsCache[col.table];
     } catch (err) {
-      console.error(
-        `❌ Failed to add missing column ${col.table}.${col.column}: ${err.message}`,
-      );
+      if (isDuplicateColumnError(err)) {
+        console.log(
+          `ℹ️ Column ${col.table}.${col.column} already present / skipped`,
+        );
+      } else {
+        console.error(
+          `❌ Column ${col.table}.${col.column} failed unexpectedly: ${err.message}`,
+        );
+      }
     }
   }
+}
+
+async function mysqlSupportsAddColumnIfNotExists() {
+  if (dbType !== "mysql") return false;
+  if (mysqlSupportsAddColumnIfNotExistsCache !== null) {
+    return mysqlSupportsAddColumnIfNotExistsCache;
+  }
+
+  try {
+    const rows = await query("SELECT VERSION() AS version");
+    const versionString = String(rows?.[0]?.version || "");
+
+    if (/mariadb/i.test(versionString)) {
+      mysqlSupportsAddColumnIfNotExistsCache = true;
+      return true;
+    }
+
+    const match = versionString.match(/(\d+)\.(\d+)\.(\d+)/);
+    if (!match) {
+      mysqlSupportsAddColumnIfNotExistsCache = false;
+      return false;
+    }
+
+    const major = Number(match[1]);
+    const minor = Number(match[2]);
+    const patch = Number(match[3]);
+
+    mysqlSupportsAddColumnIfNotExistsCache =
+      major > 8 || (major === 8 && (minor > 0 || (minor === 0 && patch >= 29)));
+    return mysqlSupportsAddColumnIfNotExistsCache;
+  } catch (err) {
+    console.warn(
+      `⚠️ Unable to determine MySQL ADD COLUMN IF NOT EXISTS support: ${err.message}`,
+    );
+    mysqlSupportsAddColumnIfNotExistsCache = false;
+    return false;
+  }
+}
+
+function isDuplicateColumnError(err) {
+  if (!err) return false;
+
+  if (dbType === "postgresql") {
+    return err.code === "42701" || /column .* already exists/i.test(err.message);
+  }
+
+  if (dbType === "mysql") {
+    return (
+      err.code === "ER_DUP_FIELDNAME" ||
+      err.errno === 1060 ||
+      err.sqlState === "42S21" ||
+      /duplicate column name/i.test(err.message)
+    );
+  }
+
+  return false;
 }
 
 // --- Startup with Retry ---
