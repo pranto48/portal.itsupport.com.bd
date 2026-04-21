@@ -202,6 +202,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
   id TEXT PRIMARY KEY DEFAULT 'default',
   onboarding_enabled BOOLEAN DEFAULT true,
   internal_analytics_enabled BOOLEAN DEFAULT true,
+  portal_name VARCHAR(120) DEFAULT 'LifeOS',
+  portal_logo_url TEXT,
   setup_complete BOOLEAN DEFAULT false,
   db_type VARCHAR(20) DEFAULT 'postgresql',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -276,6 +278,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
   id CHAR(36) PRIMARY KEY,
   onboarding_enabled BOOLEAN DEFAULT TRUE,
   internal_analytics_enabled BOOLEAN DEFAULT TRUE,
+  portal_name VARCHAR(120) DEFAULT 'LifeOS',
+  portal_logo_url TEXT,
   setup_complete BOOLEAN DEFAULT FALSE,
   db_type VARCHAR(20) DEFAULT 'mysql',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2700,8 +2704,90 @@ async function ensureSchema() {
         console.log("Schema initialized successfully");
       }
     }
+
+    await ensureCompatibilityMigrations();
   } catch (err) {
     console.error("Error ensuring schema:", err.message);
+  }
+}
+
+async function columnExists(tableName, columnName) {
+  try {
+    if (dbType === "postgresql") {
+      const rows = await query(
+        `SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+         LIMIT 1`,
+        [tableName, columnName],
+      );
+      return rows.length > 0;
+    }
+
+    const rows = await query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?
+       LIMIT 1`,
+      [tableName, columnName],
+    );
+    return rows.length > 0;
+  } catch (err) {
+    console.warn(
+      `⚠️ Failed to inspect column ${tableName}.${columnName}: ${err.message}`,
+    );
+    return false;
+  }
+}
+
+async function ensureCompatibilityMigrations() {
+  // Ensure older Docker databases have workspace permission columns expected by the frontend.
+  const requiredColumns = [
+    {
+      table: "user_workspace_permissions",
+      column: "office_enabled",
+      pgType: "BOOLEAN NOT NULL DEFAULT true",
+      mySqlType: "BOOLEAN NOT NULL DEFAULT true",
+    },
+    {
+      table: "user_workspace_permissions",
+      column: "personal_enabled",
+      pgType: "BOOLEAN NOT NULL DEFAULT true",
+      mySqlType: "BOOLEAN NOT NULL DEFAULT true",
+    },
+    {
+      table: "app_settings",
+      column: "portal_name",
+      pgType: "VARCHAR(120) DEFAULT 'LifeOS'",
+      mySqlType: "VARCHAR(120) DEFAULT 'LifeOS'",
+    },
+    {
+      table: "app_settings",
+      column: "portal_logo_url",
+      pgType: "TEXT",
+      mySqlType: "TEXT",
+    },
+  ];
+
+  for (const col of requiredColumns) {
+    const exists = await columnExists(col.table, col.column);
+    if (exists) continue;
+
+    try {
+      if (dbType === "postgresql") {
+        await query(
+          `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.pgType}`,
+        );
+      } else {
+        await query(
+          `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.mySqlType}`,
+        );
+      }
+      console.log(`✅ Added missing column ${col.table}.${col.column}`);
+      delete tableColumnsCache[col.table];
+    } catch (err) {
+      console.error(
+        `❌ Failed to add missing column ${col.table}.${col.column}: ${err.message}`,
+      );
+    }
   }
 }
 
