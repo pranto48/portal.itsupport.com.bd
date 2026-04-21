@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckSquare, Pencil, Trash2, GripVertical, MoreVertical, ChevronDown, ChevronUp, ArrowRightLeft, Repeat, FolderOpen, Settings2, CheckCheck, UserPlus, Flag, CalendarClock, LayoutGrid, List } from 'lucide-react';
+import { CheckSquare, Pencil, Trash2, GripVertical, MoreVertical, ChevronDown, ChevronUp, ArrowRightLeft, Repeat, FolderOpen, Settings2, CheckCheck, UserPlus, Flag, CalendarClock, LayoutGrid, List, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,6 +30,7 @@ import { TaskAssignmentHistory } from '@/components/tasks/TaskAssignmentHistory'
 import { TaskFollowUp } from '@/components/tasks/TaskFollowUp';
 import { TaskKanbanBoard } from '@/components/tasks/TaskKanbanBoard';
 import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
+import { logAiUsage } from '@/lib/aiUsageLogger';
 import { ReportActions } from '@/components/shared/ReportActions';
 import { FieldVisibility } from '@/components/shared/FieldVisibility';
 import {
@@ -49,6 +50,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { pageHeaderClass, pageShellClass, pageTitleClass, surfaceCardClass } from '@/lib/design-tokens';
 
 interface ChecklistItem {
   id: string;
@@ -81,6 +83,13 @@ interface SupportUserInfo {
   unit_name: string;
 }
 
+
+const triggerHaptic = (pattern: number | number[] = 10) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(pattern);
+  }
+};
+
 interface SortableTaskProps {
   task: Task;
   checklists: ChecklistItem[];
@@ -91,6 +100,7 @@ interface SortableTaskProps {
   onDelete: (id: string) => void;
   onMove: (id: string, currentType: string) => void;
   onAssign: (task: Task) => void;
+  onAiBreakdown: (task: Task) => void;
   onChecklistUpdate: () => void;
   priorityColors: Record<string, string>;
   selectionMode: boolean;
@@ -98,7 +108,7 @@ interface SortableTaskProps {
   onSelectionChange: (id: string, selected: boolean) => void;
 }
 
-function SortableTask({ task, checklists, categories, supportUserInfo, onToggle, onEdit, onDelete, onMove, onAssign, onChecklistUpdate, priorityColors, selectionMode, isSelected, onSelectionChange }: SortableTaskProps) {
+function SortableTask({ task, checklists, categories, supportUserInfo, onToggle, onEdit, onDelete, onMove, onAssign, onAiBreakdown, onChecklistUpdate, priorityColors, selectionMode, isSelected, onSelectionChange }: SortableTaskProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const {
     attributes,
@@ -122,7 +132,7 @@ function SortableTask({ task, checklists, categories, supportUserInfo, onToggle,
     <Card
       ref={setNodeRef}
       style={style}
-      className={`bg-card border-border hover:bg-muted/30 transition-colors ${isSelected ? 'ring-2 ring-primary' : ''}`}
+      className={`${surfaceCardClass} hover:bg-muted/30 transition-colors ${isSelected ? 'ring-2 ring-primary' : ''}`}
     >
       <CardContent className="p-4">
         <div className="flex items-center gap-2 md:gap-4 flex-wrap">
@@ -220,6 +230,10 @@ function SortableTask({ task, checklists, categories, supportUserInfo, onToggle,
               <DropdownMenuItem onClick={() => onAssign(task)}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Assign to User
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAiBreakdown(task)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI Assist: Breakdown
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -442,12 +456,17 @@ export default function Tasks() {
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
+    triggerHaptic(completed ? 14 : 8);
     await supabase.from('tasks').update({
       status: completed ? 'completed' : 'todo',
       completed_at: completed ? new Date().toISOString() : null,
     }).eq('id', id);
     // Update local state instead of full reload
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: completed ? 'completed' : 'todo' } : t));
+    toast.success(completed ? 'Task marked complete' : 'Task marked active', {
+      description: completed ? 'Nice work — it has been moved out of your active list.' : 'The task is back in your active queue.',
+      duration: 1800,
+    });
   };
 
   const handleEdit = (task: Task) => {
@@ -539,6 +558,56 @@ export default function Tasks() {
     setAssignDialogOpen(true);
   };
 
+  const generateChecklistSteps = (task: Task): string[] => {
+    const source = `${task.title}. ${task.description || ''}`.trim();
+    const sentenceSteps = source
+      .split(/\n|\.|;|,/)
+      .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())
+      .filter((s) => s.length > 10)
+      .slice(0, 8);
+
+    if (sentenceSteps.length >= 3) {
+      return sentenceSteps.map((s, idx) => `${idx + 1}. ${s.charAt(0).toUpperCase()}${s.slice(1)}`);
+    }
+
+    return [
+      `Define expected outcome for: ${task.title}`,
+      'List required resources or dependencies',
+      'Execute the first concrete action',
+      'Review progress and adjust next step',
+    ];
+  };
+
+  const handleAiBreakdown = async (task: Task) => {
+    if (!user) return;
+
+    const items = generateChecklistSteps(task);
+    const existing = new Set((checklists[task.id] || []).map((c) => c.title.toLowerCase().trim()));
+    const newItems = items.filter((title) => !existing.has(title.toLowerCase().trim()));
+
+    if (newItems.length === 0) {
+      toast.info('Checklist already contains these breakdown steps');
+      return;
+    }
+
+    const rows = newItems.map((title, i) => ({
+      task_id: task.id,
+      user_id: user.id,
+      title,
+      is_completed: false,
+      sort_order: (checklists[task.id]?.length || 0) + i + 1,
+    }));
+
+    const { error } = await supabase.from('task_checklists').insert(rows as any);
+    if (error) {
+      toast.error('Failed to auto-generate checklist');
+      return;
+    }
+
+    toast.success(`AI Assist added ${newItems.length} subtask${newItems.length > 1 ? 's' : ''}`);
+    loadData(0, true);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -604,9 +673,9 @@ export default function Tasks() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-foreground">{t('tasks.title')}</h1>
+    <div className={pageShellClass}>
+      <div className={pageHeaderClass}>
+        <h1 className={`${pageTitleClass} text-2xl`}>{t('tasks.title')}</h1>
         <div className="flex flex-wrap gap-2 items-center">
           {/* View Toggle */}
           <div className="flex items-center gap-0.5 bg-muted/30 rounded-md p-0.5">
@@ -761,7 +830,7 @@ export default function Tasks() {
       ) : (
       <div className="space-y-2">
         {filteredTasks.length === 0 ? (
-          <Card className="bg-card border-border">
+          <Card className={surfaceCardClass}>
             <CardContent className="py-12 text-center">
               <CheckSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">{t('tasks.noTasksYet')}</p>
@@ -802,6 +871,7 @@ export default function Tasks() {
                     onDelete={handleDelete}
                     onMove={handleMove}
                     onAssign={handleAssign}
+                    onAiBreakdown={handleAiBreakdown}
                     onChecklistUpdate={() => loadData(0, true)}
                     priorityColors={priorityColors}
                     selectionMode={selectionMode}

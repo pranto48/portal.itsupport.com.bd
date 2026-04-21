@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
-import { FileText, Pin, Star, Search, Lock, LockOpen, Plus, X, Eye, EyeOff, Trash2, MoreVertical } from 'lucide-react';
+import { FileText, Pin, Star, Search, Lock, LockOpen, Plus, X, Eye, EyeOff, Trash2, MoreVertical, Sparkles } from 'lucide-react';
 import { ReportActions } from '@/components/shared/ReportActions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +22,16 @@ import { format } from 'date-fns';
 import { DataExportImportButton } from '@/components/shared/DataExportImportButton';
 import { FieldVisibility } from '@/components/shared/FieldVisibility';
 import { MarkdownEditor } from '@/components/notes/MarkdownEditor';
+import { logAiUsage } from '@/lib/aiUsageLogger';
+import { PRODUCT_ANALYTICS_EVENTS, trackProductAnalyticsEvent } from '@/lib/productAnalytics';
 import ReactMarkdown from 'react-markdown';
+import { pageHeaderClass, pageShellClass, pageTitleClass, surfaceCardClass } from '@/lib/design-tokens';
+
+const triggerHaptic = (pattern: number | number[] = 10) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(pattern);
+  }
+};
 
 export default function Notes() {
   const { user } = useAuth();
@@ -191,10 +200,70 @@ export default function Notes() {
     }
   };
 
+  const extractTaskTitles = (content: string): string[] => {
+    const checklist = content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^[-*]\s+|^\d+[.)]\s+/.test(line))
+      .map((line) => line.replace(/^[-*]\s+|^\d+[.)]\s+/, '').trim())
+      .filter(Boolean);
+
+    if (checklist.length > 0) return checklist.slice(0, 8);
+
+    return content
+      .split(/\.|\n|;|,/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 12)
+      .slice(0, 8);
+  };
+
+  const handleConvertToTasks = async (note: any) => {
+    if (!user) return;
+    if (note.is_vault) {
+      toast({ title: 'Vault note', description: 'Unlock and copy content first for task conversion.', variant: 'destructive' });
+      return;
+    }
+
+    const titles = extractTaskTitles(note.content || '');
+    if (titles.length === 0) {
+      toast({ title: 'No action items', description: 'AI could not detect actionable items in this note.' });
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from('tasks')
+      .select('sort_order')
+      .eq('user_id', user.id)
+      .eq('task_type', mode)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+
+    const baseSort = existing?.[0]?.sort_order || 0;
+
+    const rows = titles.map((title, idx) => ({
+      user_id: user.id,
+      task_type: mode,
+      title,
+      description: `Generated from note: ${note.title}`,
+      status: 'todo',
+      priority: 'medium',
+      sort_order: baseSort + idx + 1,
+    }));
+
+    const { error } = await supabase.from('tasks').insert(rows as any);
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to convert note to tasks', variant: 'destructive' });
+      return;
+    }
+
+    window.dispatchEvent(new Event('tasks-updated'));
+    toast({ title: 'AI Assist complete', description: `${rows.length} task${rows.length > 1 ? 's' : ''} created from note.` });
+  };
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold text-foreground">{t('notes.title')}</h1>
+    <div className={pageShellClass}>
+      <div className={pageHeaderClass}>
+        <h1 className={pageTitleClass}>{t('notes.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <ReportActions
             variant="compact"
@@ -228,7 +297,7 @@ export default function Notes() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered.length === 0 ? (
-          <Card className="bg-card border-border col-span-full">
+          <Card className={`${surfaceCardClass} col-span-full`}>
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">{t('notes.noNotesYet')}</p>
@@ -238,7 +307,7 @@ export default function Notes() {
           filtered.map(note => (
             <Card 
               key={note.id} 
-              className="bg-card border-border hover:bg-muted/30 transition-colors cursor-pointer group"
+              className={`${surfaceCardClass} group cursor-pointer transition-colors hover:bg-muted/30`}
               onClick={() => handleViewNote(note)}
             >
               <CardContent className="p-4 space-y-2">
@@ -274,6 +343,12 @@ export default function Notes() {
                                           Move to {note.note_type === 'office' ? 'Personal' : 'Office'}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem 
+                                          onClick={(e) => { e.stopPropagation(); handleConvertToTasks(note); }}
+                                        >
+                                          <Sparkles className="h-4 w-4 mr-2" />
+                                          AI Assist: Note → Tasks
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
                                           onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
                                           className="text-destructive focus:text-destructive"
                                         >
@@ -306,7 +381,7 @@ export default function Notes() {
 
       {/* View Note Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-card border-border">
+        <DialogContent className={`sm:max-w-[600px] ${surfaceCardClass}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               {selectedNote?.is_vault && <Lock className="h-5 w-5 text-primary" />}
@@ -371,7 +446,7 @@ export default function Notes() {
 
       {/* Create Note Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-card border-border">
+        <DialogContent className={`sm:max-w-[600px] ${surfaceCardClass}`}>
           <DialogHeader>
             <DialogTitle className="text-foreground">{t('notes.createNewNote')}</DialogTitle>
           </DialogHeader>

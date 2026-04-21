@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isSelfHosted, selfHostedApi } from '@/lib/selfHostedConfig';
+import { exportToXlsx } from '@/lib/xlsxHelpers';
 
 export type ExportableEntity = 
   | 'tasks' | 'task_categories' | 'task_checklists' | 'task_follow_up_notes'
@@ -8,11 +9,55 @@ export type ExportableEntity =
   | 'projects' | 'project_milestones'
   | 'profiles' | 'user_roles';
 
-export type ExportFormat = 'json' | 'xml';
+export type ExportFormat = 'json' | 'xml' | 'xlsx';
 
 interface ExportConfig {
   entities: ExportableEntity[];
   label: string;
+}
+
+export interface ImportPreviewWarning {
+  entity: string;
+  rowIndex: number;
+  message: string;
+}
+
+export interface ImportPreviewSummary {
+  fixedPayload: any;
+  warnings: ImportPreviewWarning[];
+  schemaSummary: {
+    entitiesDetected: number;
+    rowsDetected: number;
+    missingEntities: string[];
+    invalidEntityShapes: string[];
+  };
+  entityBreakdown: Array<{
+    entity: string;
+    rows: number;
+    idAutoConverted: number;
+    relationshipsRemapped: number;
+  }>;
+  idAutoConverted: number;
+  relationshipsRemapped: number;
+  idConversionDetails: Array<{
+    entity: string;
+    rowIndex: number;
+    originalId: string;
+    convertedId: string;
+  }>;
+  relationRemapDetails: Array<{
+    entity: string;
+    fkColumn: string;
+    targetEntity: string;
+    count: number;
+  }>;
+  rowRemapDetails: Array<{
+    entity: string;
+    rowIndex: number;
+    fkColumn: string;
+    from: string;
+    to: string;
+  }>;
 }
 
 export const EXPORT_PRESETS: Record<string, ExportConfig> = {
@@ -52,6 +97,195 @@ const SHARED_TABLES = new Set([
   'device_categories', 'device_suppliers', 'device_inventory', 'device_service_history',
   'user_roles',
 ]);
+
+
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_V4_REGEX.test(value);
+}
+
+function makeUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback for older environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+const FOREIGN_KEY_REMAP: Record<string, Record<string, string>> = {
+  support_departments: { unit_id: 'support_units' },
+  support_users: { department_id: 'support_departments' },
+  task_checklists: { task_id: 'tasks' },
+  task_follow_up_notes: { task_id: 'tasks' },
+  project_milestones: { project_id: 'projects' },
+  device_inventory: {
+    category_id: 'device_categories',
+    supplier_id: 'device_suppliers',
+    support_user_id: 'support_users',
+  },
+  device_service_history: {
+    device_id: 'device_inventory',
+    task_id: 'tasks',
+  },
+};
+
+function buildIdRemapMap(entities: ExportableEntity[], data: Record<string, any>): Record<string, Map<string, string>> {
+  const maps: Record<string, Map<string, string>> = {};
+
+  for (const entity of entities) {
+    const rows = data?.[entity];
+    if (!Array.isArray(rows)) continue;
+
+    const remap = new Map<string, string>();
+    for (const row of rows) {
+      const id = row?.id;
+      if (typeof id === 'string' && id.length > 0 && !isValidUuid(id)) {
+        if (!remap.has(id)) {
+          remap.set(id, makeUuid());
+        }
+      }
+    }
+    if (remap.size > 0) {
+      maps[entity] = remap;
+    }
+  }
+
+  return maps;
+}
+
+function applyIdAndFkRemap(row: any, entity: string, idRemapMap: Record<string, Map<string, string>>): any {
+  const next = { ...row };
+
+  const idMap = idRemapMap[entity];
+  if (idMap && typeof next.id === 'string' && idMap.has(next.id)) {
+    next.id = idMap.get(next.id);
+  }
+
+  const fkMap = FOREIGN_KEY_REMAP[entity] || {};
+  for (const [fkColumn, targetEntity] of Object.entries(fkMap)) {
+    const value = next[fkColumn];
+    const targetMap = idRemapMap[targetEntity];
+    if (targetMap && typeof value === 'string' && targetMap.has(value)) {
+      next[fkColumn] = targetMap.get(value);
+    }
+  }
+
+  return next;
+}
+
+export function buildImportPreview(payload: any, userId: string): ImportPreviewSummary {
+  const preset = EXPORT_PRESETS[payload?.exportType];
+  if (!preset || !payload?.data || typeof payload.data !== 'object') {
+    throw new Error('Invalid import payload');
+  }
+
+  const data = payload.data as Record<string, any>;
+  const idRemapMap = buildIdRemapMap(preset.entities, data);
+  const fixedData: Record<string, any[]> = {};
+  const warnings: ImportPreviewWarning[] = [];
+  const idConversionDetails: ImportPreviewSummary['idConversionDetails'] = [];
+  const rowRemapDetails: ImportPreviewSummary['rowRemapDetails'] = [];
+  const relationRemapCounter = new Map<string, number>();
+  const entityBreakdown: ImportPreviewSummary['entityBreakdown'] = [];
+
+  const missingEntities = preset.entities.filter((entity) => !Array.isArray(data[entity]));
+  const invalidEntityShapes = preset.entities.filter((entity) => {
+    const rows = data[entity];
+    return Array.isArray(rows) && rows.some((row) => row === null || typeof row !== 'object' || Array.isArray(row));
+  });
+
+  for (const entity of preset.entities) {
+    const rows = Array.isArray(data[entity]) ? data[entity] : [];
+    let entityIdConversions = 0;
+    let entityFkRemaps = 0;
+
+    fixedData[entity] = rows
+      .map((row: any, rowIndex: number) => {
+        if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+          warnings.push({
+            entity,
+            rowIndex,
+            message: 'Row is not a valid object and was skipped.',
+          });
+          return null;
+        }
+
+        const originalId = row.id;
+        const remapped = applyIdAndFkRemap({ ...row }, entity, idRemapMap);
+
+        if (typeof originalId === 'string' && remapped.id !== originalId) {
+          entityIdConversions++;
+          idConversionDetails.push({
+            entity,
+            rowIndex,
+            originalId,
+            convertedId: remapped.id,
+          });
+        }
+
+        const fkMap = FOREIGN_KEY_REMAP[entity] || {};
+        for (const [fkColumn, targetEntity] of Object.entries(fkMap)) {
+          const from = row[fkColumn];
+          const to = remapped[fkColumn];
+          if (typeof from === 'string' && typeof to === 'string' && from !== to) {
+            entityFkRemaps++;
+            rowRemapDetails.push({ entity, rowIndex, fkColumn, from, to });
+            const key = `${entity}|${fkColumn}|${targetEntity}`;
+            relationRemapCounter.set(key, (relationRemapCounter.get(key) || 0) + 1);
+          }
+        }
+
+        if ('user_id' in remapped) {
+          remapped.user_id = userId;
+        }
+
+        return remapped;
+      })
+      .filter((row): row is Record<string, any> => Boolean(row));
+
+    entityBreakdown.push({
+      entity,
+      rows: fixedData[entity].length,
+      idAutoConverted: entityIdConversions,
+      relationshipsRemapped: entityFkRemaps,
+    });
+  }
+
+  const relationRemapDetails: ImportPreviewSummary['relationRemapDetails'] = Array.from(relationRemapCounter.entries()).map(([key, count]) => {
+    const [entity, fkColumn, targetEntity] = key.split('|');
+    return { entity, fkColumn, targetEntity, count };
+  });
+
+  const fixedPayload = {
+    ...payload,
+    data: fixedData,
+    exportedAt: payload.exportedAt || new Date().toISOString(),
+  };
+
+  const rowsDetected = preset.entities.reduce((acc, entity) => acc + (Array.isArray(data[entity]) ? data[entity].length : 0), 0);
+
+  return {
+    fixedPayload,
+    warnings,
+    schemaSummary: {
+      entitiesDetected: preset.entities.filter((entity) => Array.isArray(data[entity])).length,
+      rowsDetected,
+      missingEntities,
+      invalidEntityShapes,
+    },
+    entityBreakdown,
+    idAutoConverted: idConversionDetails.length,
+    relationshipsRemapped: rowRemapDetails.length,
+    idConversionDetails,
+    relationRemapDetails,
+    rowRemapDetails,
+  };
+}
 
 export async function fetchEntityData(entity: ExportableEntity, userId: string): Promise<any[]> {
   if (isSelfHosted()) {
@@ -154,6 +388,9 @@ export async function exportData(
   if (format === 'json') {
     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
     return { blob, filename: `lifeos-${preset}-${dateStr}.json` };
+  } else if (format === 'xlsx') {
+    const blob = exportToXlsx(result, preset);
+    return { blob, filename: `lifeos-${preset}-${dateStr}.xlsx` };
   } else {
     const xml = jsonToXml(exportPayload, 'LifeOSExport');
     const blob = new Blob([xml], { type: 'application/xml' });
@@ -213,23 +450,18 @@ export async function importData(
   conflictResolution: 'overwrite' | 'skip' = 'overwrite',
   existingDataMap?: Record<string, any[]>,
 ): Promise<{ imported: number; errors: string[] }> {
-  if (!payload?.data || !payload?.exportType) {
-    throw new Error('Invalid export file. Missing "data" or "exportType" field.');
-  }
-
-  const preset = EXPORT_PRESETS[payload.exportType];
-  if (!preset) {
-    throw new Error(`Unknown export type: ${payload.exportType}`);
-  }
+  const preview = buildImportPreview(payload, userId);
+  const preset = EXPORT_PRESETS[preview.fixedPayload.exportType];
 
   let imported = 0;
   const errors: string[] = [];
   const isShared = (entity: string) => SHARED_TABLES.has(entity as ExportableEntity);
   const total = preset.entities.length;
+  const idRemapMap = buildIdRemapMap(preset.entities, payload.data);
 
   for (let idx = 0; idx < total; idx++) {
     const entity = preset.entities[idx];
-    const rows = payload.data[entity];
+    const rows = preview.fixedPayload.data[entity];
     if (!Array.isArray(rows) || rows.length === 0) {
       onPct?.(((idx + 1) / total) * 100);
       continue;
@@ -257,10 +489,11 @@ export async function importData(
 
     const cleaned = filteredRows.map((row: any) => {
       const { search_vector, ...rest } = row;
-      if (rest.user_id) {
-        rest.user_id = userId;
+      const remapped = applyIdAndFkRemap(rest, entity, idRemapMap);
+      if (remapped.user_id) {
+        remapped.user_id = userId;
       }
-      return rest;
+      return remapped;
     });
 
     const onConflictKey = getOnConflictKey(entity);

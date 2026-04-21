@@ -21,9 +21,13 @@ import { LocationReminders } from '@/components/pwa/LocationReminders';
 import { CalendarIntegrationSettings } from '@/components/settings/CalendarIntegrationSettings';
 import { AdminSettings } from '@/components/settings/AdminSettings';
 import { AiSettings } from '@/components/settings/AiSettings';
+import { AiHistory } from '@/components/settings/AiHistory';
+import { SelfHostedHealthCard } from '@/components/settings/SelfHostedHealthCard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useUserRoles';
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
+import { floatingHeaderClass, pageTitleClass, surfaceCardClass } from '@/lib/design-tokens';
+import { isSelfHosted } from '@/lib/selfHostedConfig';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -51,6 +55,7 @@ export default function Settings() {
       'admin-security': 'security',
       'admin-integrations': 'integrations',
       'admin-license': 'license',
+      'admin-desktop': 'desktop',
     };
     return adminTabMap[activeCategory] || null;
   };
@@ -88,6 +93,8 @@ export default function Settings() {
         return <DataExport />;
       case 'ai':
         return <AiSettings />;
+      case 'ai-history':
+        return <AiHistory />;
       case 'license':
         return <LicenseSettings />;
       case 'location':
@@ -116,6 +123,7 @@ export default function Settings() {
       license: { en: 'License', bn: 'লাইসেন্স' },
       admin: { en: 'Admin Panel', bn: 'এডমিন প্যানেল' },
       ai: { en: 'AI Settings', bn: 'AI সেটিংস' },
+      'ai-history': { en: 'AI History', bn: 'AI ইতিহাস' },
       'admin-general': { en: 'Admin — General', bn: 'এডমিন — সাধারণ' },
       'admin-modules': { en: 'Admin — Modules', bn: 'এডমিন — মডিউল' },
       'admin-users': { en: 'Admin — Users & Roles', bn: 'এডমিন — ইউজার ও রোল' },
@@ -126,6 +134,7 @@ export default function Settings() {
       'admin-security': { en: 'Admin — Security', bn: 'এডমিন — সিকিউরিটি' },
       'admin-integrations': { en: 'Admin — Integrations', bn: 'এডমিন — ইন্টিগ্রেশন' },
       'admin-license': { en: 'Admin — License', bn: 'এডমিন — লাইসেন্স' },
+      'admin-desktop': { en: 'Admin — Desktop App', bn: 'এডমিন — ডেস্কটপ অ্যাপ' },
     };
     const title = titles[activeCategory] || titles.profile;
     return language === 'bn' ? title.bn : title.en;
@@ -135,7 +144,7 @@ export default function Settings() {
     <div className="flex h-full min-h-[calc(100vh-8rem)]">
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <aside className="w-64 border-r border-border bg-card/50 flex-shrink-0">
+        <aside className={`w-64 flex-shrink-0 border-r border-border/80 bg-card/60 backdrop-blur-sm ${surfaceCardClass}`}>
           <div className="p-4 border-b border-border">
             <h1 className="text-lg font-semibold flex items-center gap-2">
               <SettingsIcon className="h-5 w-5" />
@@ -154,7 +163,7 @@ export default function Settings() {
       <main className="flex-1 overflow-auto">
         {/* Mobile Header */}
         {isMobile && (
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border p-4 flex items-center gap-3">
+          <div className={`${floatingHeaderClass} z-10 flex items-center gap-3 p-4`}>
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -179,10 +188,11 @@ export default function Settings() {
           </div>
         )}
 
-        <div className="p-4 md:p-6 max-w-2xl">
+        <div className="app-page-shell max-w-2xl p-4 md:p-6">
           {!isMobile && (
-            <h2 className="text-xl font-semibold mb-6">{getCategoryTitle()}</h2>
+            <h2 className={`${pageTitleClass} mb-6 text-xl`}>{getCategoryTitle()}</h2>
           )}
+          {isSelfHosted() ? <SelfHostedHealthCard /> : null}
           <SectionErrorBoundary sectionName={getCategoryTitle()}>
             {renderContent()}
           </SectionErrorBoundary>

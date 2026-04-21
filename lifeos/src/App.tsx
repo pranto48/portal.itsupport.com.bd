@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { DashboardModeProvider } from "@/contexts/DashboardModeContext";
@@ -34,6 +34,7 @@ const Projects = lazy(() => import("./pages/Projects"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const SupportUsers = lazy(() => import("./pages/SupportUsers"));
 const DeviceInventory = lazy(() => import("./pages/DeviceInventory"));
+const IpbxInventory = lazy(() => import("./pages/IpbxInventory"));
 const DeviceProfile = lazy(() => import("./pages/DeviceProfile"));
 const SupportTickets = lazy(() => import("./pages/SupportTickets"));
 const SubmitTicket = lazy(() => import("./pages/SubmitTicket"));
@@ -43,6 +44,7 @@ const AiHub = lazy(() => import("./pages/AiHub"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Marketing = lazy(() => import("./pages/Marketing"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,7 +71,9 @@ const PageLoader = () => (
 
 // App content with onboarding
 const AppContent = () => {
+  const location = useLocation();
   const { showOnboarding, isLoading, completeOnboarding } = useOnboarding();
+  const isStandaloneRoute = ["/marketing", "/auth", "/setup"].includes(location.pathname);
 
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
@@ -87,13 +91,14 @@ const AppContent = () => {
   return (
     <>
       <AnimatePresence mode="wait">
-        {showOnboarding && (
+        {showOnboarding && !isStandaloneRoute && (
           <OnboardingFlow onComplete={completeOnboarding} />
         )}
       </AnimatePresence>
-      {!showOnboarding && (
+      {(!showOnboarding || isStandaloneRoute) && (
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            <Route path="/marketing" element={<Marketing />} />
             <Route path="/setup" element={<Setup />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
@@ -110,6 +115,7 @@ const AppContent = () => {
             <Route path="/calendar" element={<AppLayout><Calendar /></AppLayout>} />
             <Route path="/support-users" element={<AppLayout><SupportUsers /></AppLayout>} />
             <Route path="/device-inventory" element={<AppLayout><DeviceInventory /></AppLayout>} />
+            <Route path="/ipbx-inventory" element={<AppLayout><IpbxInventory /></AppLayout>} />
             <Route path="/device/:deviceNumber" element={<DeviceProfile />} />
             <Route path="/support-tickets" element={<AppLayout><SupportTickets /></AppLayout>} />
             <Route path="/submit-ticket" element={<SubmitTicket />} />

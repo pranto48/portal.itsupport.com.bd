@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { 
   User, Shield, Bell, Languages, Calendar, Database, Crown, 
   ChevronRight, ChevronDown, Settings, Fingerprint, Smartphone, KeyRound, Lock, Key,
-  LayoutGrid, Users, Briefcase, FormInput, ToggleLeft, Mail, Sparkles, MapPin
+  LayoutGrid, Users, Briefcase, FormInput, ToggleLeft, Mail, Sparkles, MapPin, History
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ export type SettingsCategory =
   | 'backup' 
   | 'license'
   | 'ai'
+  | 'ai-history'
   | 'location'
   | 'admin'
   | 'admin-general'
@@ -35,6 +36,7 @@ export type SettingsCategory =
   | 'admin-security'
   | 'admin-integrations'
   | 'admin-license'
+  | 'admin-desktop'
   | 'preferences';
 
 interface SettingsNavProps {
@@ -71,6 +73,7 @@ const navItems: NavItem[] = [
   { id: 'calendar', labelEn: 'Calendar Sync', labelBn: 'ক্যালেন্ডার সিঙ্ক', icon: <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
   { id: 'backup', labelEn: 'Backup & Restore', labelBn: 'ব্যাকআপ ও রিস্টোর', icon: <Database className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
   { id: 'ai', labelEn: 'AI Settings', labelBn: 'AI সেটিংস', icon: <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
+  { id: 'ai-history', labelEn: 'AI History', labelBn: 'AI ইতিহাস', icon: <History className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
   { id: 'license', labelEn: 'License', labelBn: 'লাইসেন্স', icon: <Key className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
   { id: 'location', labelEn: 'Location Reminders', labelBn: 'লোকেশন রিমাইন্ডার', icon: <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4" />, group: 'app' },
   
@@ -87,6 +90,7 @@ const navItems: NavItem[] = [
   { id: 'admin-security', labelEn: 'Security', labelBn: 'সিকিউরিটি', icon: <Shield className="h-3 w-3 md:h-3.5 md:w-3.5" />, group: 'admin', isSubItem: true, parentId: 'admin' },
   { id: 'admin-integrations', labelEn: 'Integrations', labelBn: 'ইন্টিগ্রেশন', icon: <Key className="h-3 w-3 md:h-3.5 md:w-3.5" />, group: 'admin', isSubItem: true, parentId: 'admin' },
   { id: 'admin-license', labelEn: 'License', labelBn: 'লাইসেন্স', icon: <Crown className="h-3 w-3 md:h-3.5 md:w-3.5" />, group: 'admin', isSubItem: true, parentId: 'admin' },
+  { id: 'admin-desktop', labelEn: 'Desktop App', labelBn: 'ডেস্কটপ অ্যাপ', icon: <Briefcase className="h-3 w-3 md:h-3.5 md:w-3.5" />, group: 'admin', isSubItem: true, parentId: 'admin' },
 ];
 
 const groupLabels = {
