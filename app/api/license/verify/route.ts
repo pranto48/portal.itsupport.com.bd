@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { 
+  initializeApp as initializeClientApp, 
+  getApps as getClientApps, 
+  getApp as getClientApp 
+} from "firebase/app";
+import { 
+  getFirestore as getClientFirestore, 
+  collection as clientCollection, 
+  query as clientQuery, 
+  where as clientWhere, 
+  limit as clientLimit, 
+  getDocs as clientGetDocs, 
+  updateDoc as clientUpdateDoc 
+} from "firebase/firestore";
 
 const ENCRYPTION_KEY = "ITSupportBD_SecureKey_2024";
 
@@ -61,6 +75,22 @@ interface CacheItem {
 }
 const VERIFICATION_CACHE = new Map<string, CacheItem>();
 const CACHE_TTL = 30000; // 30 seconds TTL for fast successive verifications
+
+const CLIENT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBbg_wbmKs59e_MvETyftbaHsFOfzqGQVI",
+  authDomain: "portal-itsupport.firebaseapp.com",
+  projectId: "portal-itsupport",
+  storageBucket: "portal-itsupport.firebasestorage.app",
+  messagingSenderId: "936929281635",
+  appId: "1:936929281635:web:ab9dea0bf4415d733b5a56",
+  measurementId: "G-Y355P4ST65"
+};
+
+function getClientDbInstance() {
+  const apps = getClientApps();
+  const app = apps.length > 0 ? getClientApp() : initializeClientApp(CLIENT_FIREBASE_CONFIG);
+  return getClientFirestore(app);
+}
 
 /**
  * Encrypts license data in AES-256-CBC format expected by the PHP AmPOS client.
@@ -219,39 +249,97 @@ async function verifyCore(
   }
 
   // 3. Query Firestore for other license keys
-  try {
-    const db = getAdminDb();
-    const licSnap = await db.collection("licenses").where("key", "==", key).limit(1).get();
+  let licDocs: any[] = [];
+  let isClientFallback = false;
 
-    if (!licSnap.empty) {
-      const licDoc = licSnap.docs[0];
-      const licData = licDoc.data();
-      const expiresAt = new Date(licData.expiresAt);
+  const hasAdminCreds = !!(
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+  );
 
-      if (licData.status !== "active" && licData.status !== "free") {
-        return sendResponse(
-          isPhpClient
-            ? { success: false, message: `License is ${licData.status}.`, actual_status: licData.status }
-            : { valid: false, status: licData.status, error: `License is ${licData.status}` }
-        );
+  if (hasAdminCreds) {
+    try {
+      const db = getAdminDb();
+      const licSnap = await db.collection("licenses").where("key", "==", key).limit(1).get();
+      if (!licSnap.empty) {
+        const licDoc = licSnap.docs[0];
+        licDocs = [{
+          id: licDoc.id,
+          ref: licDoc.ref,
+          data: licDoc.data(),
+          isClient: false
+        }];
       }
+    } catch (dbError) {
+      console.error("Firestore Admin SDK lookup failed, trying client fallback:", dbError);
+      isClientFallback = true;
+    }
+  } else {
+    isClientFallback = true;
+  }
 
-      if (expiresAt < now) {
-        return sendResponse(
-          isPhpClient
-            ? { success: false, message: "License has expired.", actual_status: "expired" }
-            : { valid: false, status: "expired", error: "License has expired." }
-        );
+  if (isClientFallback) {
+    try {
+      const clientDb = getClientDbInstance();
+      const q = clientQuery(
+        clientCollection(clientDb, "licenses"),
+        clientWhere("key", "==", key),
+        clientLimit(1)
+      );
+      const querySnapshot = await clientGetDocs(q);
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        licDocs = [{
+          id: docSnap.id,
+          ref: docSnap.ref,
+          data: docSnap.data(),
+          isClient: true
+        }];
       }
+    } catch (clientError) {
+      console.error("Firestore Client SDK lookup failed:", clientError);
+    }
+  }
 
-      // Binding check (write back to Firestore or in-memory)
+  if (licDocs.length > 0) {
+    const licDoc = licDocs[0];
+    const licData = licDoc.data;
+    const expiresAt = new Date(licData.expiresAt);
+
+    if (licData.status !== "active" && licData.status !== "free") {
+      return sendResponse(
+        isPhpClient
+          ? { success: false, message: `License is ${licData.status}.`, actual_status: licData.status }
+          : { valid: false, status: licData.status, error: `License is ${licData.status}` }
+      );
+    }
+
+    if (expiresAt < now) {
+      return sendResponse(
+        isPhpClient
+          ? { success: false, message: "License has expired.", actual_status: "expired" }
+          : { valid: false, status: "expired", error: "License has expired." }
+      );
+    }
+
+    // Binding check (write back to Firestore or in-memory)
+    try {
       if (installationId) {
         if (!licData.installationId) {
-          await licDoc.ref.update({
-            installationId,
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString()
-          });
+          if (licDoc.isClient) {
+            await clientUpdateDoc(licDoc.ref, {
+              installationId,
+              lastIp: clientIp,
+              lastVerifiedAt: new Date().toISOString()
+            });
+          } else {
+            await licDoc.ref.update({
+              installationId,
+              lastIp: clientIp,
+              lastVerifiedAt: new Date().toISOString()
+            });
+          }
         } else if (licData.installationId !== installationId) {
           return sendResponse(
             isPhpClient
@@ -261,35 +349,42 @@ async function verifyCore(
           );
         }
       } else {
-        await licDoc.ref.update({
-          lastIp: clientIp,
-          lastVerifiedAt: new Date().toISOString()
-        });
+        if (licDoc.isClient) {
+          await clientUpdateDoc(licDoc.ref, {
+            lastIp: clientIp,
+            lastVerifiedAt: new Date().toISOString()
+          });
+        } else {
+          await licDoc.ref.update({
+            lastIp: clientIp,
+            lastVerifiedAt: new Date().toISOString()
+          });
+        }
       }
-
-      return sendResponse(
-        isPhpClient
-          ? {
-              success: true,
-              message: "License is active.",
-              max_devices: licData.maxDevices || 1,
-              actual_status: licData.status,
-              expires_at: licData.expiresAt,
-              core_key: "ITSupportBD_CoreShield_2026",
-            }
-          : {
-              valid: true,
-              status: licData.status,
-              expiresAt: licData.expiresAt,
-              orgId: licData.orgId,
-              productId: licData.productId,
-              lastIp: clientIp,
-              lastVerifiedAt: new Date().toISOString(),
-            }
-      );
+    } catch (updateError) {
+      console.error("Failed to update license metadata document in Firestore:", updateError);
     }
-  } catch (dbError) {
-    console.error("Firestore database lookup failed:", dbError);
+
+    return sendResponse(
+      isPhpClient
+        ? {
+            success: true,
+            message: "License is active.",
+            max_devices: licData.maxDevices || 1,
+            actual_status: licData.status,
+            expires_at: licData.expiresAt,
+            core_key: "ITSupportBD_CoreShield_2026",
+          }
+        : {
+            valid: true,
+            status: licData.status,
+            expiresAt: licData.expiresAt,
+            orgId: licData.orgId,
+            productId: licData.productId,
+            lastIp: clientIp,
+            lastVerifiedAt: new Date().toISOString(),
+          }
+    );
   }
 
   // 4. Key not found in static list or database
