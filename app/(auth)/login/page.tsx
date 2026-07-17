@@ -26,12 +26,12 @@ export default function LoginPage() {
     try {
       const auth = getAuth(app);
       const db = getFirestore(app);
-      
+
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const token = await userCredential.user.getIdToken();
       // Write cookie directly before routing to avoid edge middleware race condition
       document.cookie = `session-token=${token}; path=/; max-age=3600; SameSite=Strict; Secure`;
-      
+
       // Fetch user profile from firestore with offline fallback
       let userProfile: UserProfile;
       try {
@@ -78,10 +78,10 @@ export default function LoginPage() {
           orgId: "org-it",
           createdAt: new Date().toISOString(),
         };
-        
+
         document.cookie = "bypass-auth=true; path=/; max-age=3600; SameSite=Strict";
         document.cookie = "session-token=mock.jwt.token; path=/; max-age=3600; SameSite=Strict";
-        
+
         setProfile(userProfile);
         router.push("/dashboard");
         return;
@@ -98,13 +98,13 @@ export default function LoginPage() {
     try {
       const auth = getAuth(app);
       const db = getFirestore(app);
-      
+
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const token = await result.user.getIdToken();
       // Write cookie directly before routing to avoid edge middleware race condition
       document.cookie = `session-token=${token}; path=/; max-age=3600; SameSite=Strict; Secure`;
-      
+
       // Fetch or create profile if not present with offline fallback
       let userProfile: UserProfile;
       try {
@@ -149,10 +149,10 @@ export default function LoginPage() {
         orgId: "org-google-default",
         createdAt: new Date().toISOString(),
       };
-      
+
       document.cookie = "bypass-auth=true; path=/; max-age=3600; SameSite=Strict";
       document.cookie = "session-token=mock.jwt.token; path=/; max-age=3600; SameSite=Strict";
-      
+
       setProfile(userProfile);
       router.push("/dashboard");
     } finally {
@@ -167,7 +167,7 @@ export default function LoginPage() {
         {/* Background glowing gradients */}
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
-        
+
         {/* Logo and Header */}
         <div className="flex items-center gap-3.5 z-10 select-none">
           <div className="p-1 bg-gradient-to-tr from-blue-500 to-cyan-400 rounded-xl shadow-lg shadow-blue-500/20">
@@ -338,7 +338,7 @@ export default function LoginPage() {
                 {loading ? "Verifying Credentials..." : "Sign In to Workspace"}
                 <ArrowRight size={16} />
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => {
