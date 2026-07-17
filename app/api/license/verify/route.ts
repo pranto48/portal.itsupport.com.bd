@@ -349,22 +349,22 @@ async function verifyCore(
     return sendResponse(
       isPhpClient
         ? {
-            success: true,
-            message: "License is active.",
-            max_devices: 10,
-            actual_status: "active",
-            expires_at: "2029-12-31",
-            core_key: "ITSupportBD_CoreShield_2026",
-          }
+          success: true,
+          message: "License is active.",
+          max_devices: 10,
+          actual_status: "active",
+          expires_at: "2029-12-31",
+          core_key: "ITSupportBD_CoreShield_2026",
+        }
         : {
-            valid: true,
-            status: "active",
-            expiresAt: "2029-12-31",
-            orgId: "org-legacy-fallback",
-            productId: "prod-enterprise",
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString(),
-          }
+          valid: true,
+          status: "active",
+          expiresAt: "2029-12-31",
+          orgId: "org-legacy-fallback",
+          productId: "prod-enterprise",
+          lastIp: clientIp,
+          lastVerifiedAt: new Date().toISOString(),
+        }
     );
   }
 
