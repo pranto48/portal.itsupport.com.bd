@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { Organization, Product, License, UserProfile, PaymentSettings, MailSettings, EmailLog } from "@/types";
 import { app } from "@/lib/firebase";
 import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
@@ -27,7 +28,9 @@ interface MonitorState {
   syncWithFirestore: () => Promise<void>;
 }
 
-export const useMonitorStore = create<MonitorState>((set) => ({
+export const useMonitorStore = create<MonitorState>()(
+  persist(
+    (set) => ({
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -244,5 +247,19 @@ export const useMonitorStore = create<MonitorState>((set) => ({
       console.error("Failed to sync store with Firestore:", e);
     }
   },
-}));
+    }),
+    {
+      name: "ampnm-monitor-store",
+      partialize: (state) => ({
+        sidebarOpen: state.sidebarOpen,
+        organizations: state.organizations,
+        licenses: state.licenses,
+        profile: state.profile,
+        paymentSettings: state.paymentSettings,
+        mailSettings: state.mailSettings,
+        emailLogs: state.emailLogs,
+      }),
+    }
+  )
+);
 

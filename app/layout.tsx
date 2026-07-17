@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   },
   description: "Enterprise administrative console for client accounts, licensing node keys management, and dynamic payment configurations.",
   metadataBase: new URL("https://portal.itsupport.com.bd"),
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
   keywords: [
     "AMPNM Portal",
     "AMPNM Logins",

@@ -52,17 +52,17 @@ export function Sidebar() {
       )}
     >
       <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800">
-        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg">
-          <div className="p-1.5 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-lg flex-shrink-0">
-            <Key className="h-5 w-5" />
+        <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg">
+          <div className="p-1 bg-gradient-to-tr from-blue-500 to-cyan-400 rounded-lg shadow-sm flex-shrink-0">
+            <img src="/favicon.png" alt="Logo" className="h-6 w-6" />
           </div>
           <span
             className={cn(
-              "font-bold text-zinc-900 dark:text-zinc-50 text-sm tracking-tight transition-opacity duration-200 whitespace-nowrap",
+              "font-bold text-zinc-900 dark:text-zinc-50 text-xs tracking-tight transition-all duration-300 whitespace-nowrap uppercase",
               sidebarOpen ? "opacity-100" : "opacity-0 w-0 pointer-events-none"
             )}
           >
-            AMPNM Portal
+            IT Support BD
           </span>
         </Link>
 

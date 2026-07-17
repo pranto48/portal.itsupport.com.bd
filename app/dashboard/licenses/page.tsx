@@ -46,16 +46,19 @@ export default function LicensesPage() {
     setLoading(true);
     setGeneratedKey(null);
     
-    // Simulate payment clearing latency
+    // Fast responsive UI delay for visual state transition
     setTimeout(() => {
-      const formattedKey = "AMP256-B713A3E37B5FE53C-6F38AE70F5CC0DF6-EBB7A8AEFFB261B0-9401F60994D97223";
+      const buffer = new Uint8Array(32);
+      window.crypto.getRandomValues(buffer);
+      const hexKey = Array.from(buffer, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const formattedKey = `AMP256-${hexKey.slice(0, 16)}-${hexKey.slice(16, 32)}-${hexKey.slice(32, 48)}-${hexKey.slice(48, 64)}`;
       
       const newLic: License = {
         id: `l_${Date.now()}`,
         key: formattedKey,
         orgId: finalOrgId,
         productId: selectedProductId,
-        status: isPaidProduct ? "active" : "active", // Commercial products activated upon mock checkout
+        status: "active",
         createdAt: new Date().toISOString().split("T")[0],
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       };
@@ -68,7 +71,7 @@ export default function LicensesPage() {
       setSelectedProductId("");
       setTxnId("");
       setLoading(false);
-    }, 1000);
+    }, 150);
   };
 
   const handleCopy = () => {

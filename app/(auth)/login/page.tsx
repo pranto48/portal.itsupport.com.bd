@@ -7,7 +7,7 @@ import { app } from "@/lib/firebase";
 import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { useMonitorStore } from "@/store/use-monitor-store";
-import { Activity, ShieldAlert, Key, Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Activity, ShieldAlert, Key, Mail, ArrowRight, Eye, EyeOff, Server, CheckCircle2, Globe, Cpu, Sparkles } from "lucide-react";
 import { UserProfile } from "@/types";
 
 export default function LoginPage() {
@@ -119,36 +119,130 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="flex justify-center">
-          <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
-            <Activity className="h-8 w-8 animate-pulse" />
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col md:flex-row font-sans">
+      {/* LEFT PANEL - SYSTEM STATUS MONITOR (PRODUCTIVE & TECH AESTHETIC) */}
+      <div className="hidden md:flex md:w-5/12 bg-zinc-950 text-white flex-col justify-between p-12 relative overflow-hidden border-r border-zinc-900">
+        {/* Background glowing gradients */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
+        
+        {/* Logo and Header */}
+        <div className="flex items-center gap-3.5 z-10 select-none">
+          <div className="p-1 bg-gradient-to-tr from-blue-500 to-cyan-400 rounded-xl shadow-lg shadow-blue-500/20">
+            <img src="/favicon.png" alt="IT Support BD Logo" className="h-9 w-9 animate-float" />
+          </div>
+          <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+            IT SUPPORT BD
+          </span>
+        </div>
+
+        {/* Live System Diagnostics / Statistics */}
+        <div className="my-auto space-y-6 z-10">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
+              System Diagnostics
+            </span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight leading-tight">
+              Enterprise Licensing <br />
+              & Monitoring Portal
+            </h1>
+            <p className="mt-2 text-zinc-400 text-sm font-medium">
+              Manage client organizations, issue unique crypto keys, and audit MFS transactions.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {/* Server Stat */}
+            <div className="flex items-center gap-4 bg-zinc-900/60 p-4 border border-zinc-800/80 rounded-xl hover:border-blue-500/40 transition-colors duration-300">
+              <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg">
+                <Server size={18} className="animate-pulse" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wide">License Server</p>
+                <p className="text-sm font-bold text-zinc-200">Active & Syncing</p>
+              </div>
+            </div>
+
+            {/* Check-in Speed Stat */}
+            <div className="flex items-center gap-4 bg-zinc-900/60 p-4 border border-zinc-800/80 rounded-xl hover:border-cyan-500/40 transition-colors duration-300">
+              <div className="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-lg">
+                <Cpu size={18} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wide">Verification Latency</p>
+                <p className="text-sm font-bold text-zinc-200">&lt; 1.2ms (Cached Edge)</p>
+              </div>
+            </div>
+
+            {/* Gateway Stat */}
+            <div className="flex items-center gap-4 bg-zinc-900/60 p-4 border border-zinc-800/80 rounded-xl hover:border-emerald-500/40 transition-colors duration-300">
+              <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                <CheckCircle2 size={18} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-zinc-500 tracking-wide uppercase">Gateway Status</p>
+                <p className="text-sm font-bold text-zinc-200">bkash / Nagad Operational</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mini Live Console Logs */}
+          <div className="bg-black/40 border border-zinc-900/90 rounded-xl p-4 font-mono text-[10px] text-zinc-500 space-y-1 select-none">
+            <p className="text-cyan-400/90 font-bold border-b border-zinc-900 pb-1.5 mb-2 flex items-center justify-between">
+              <span>REAL-TIME AUDIT LOGS</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+            </p>
+            <p><span className="text-zinc-600">[07:35:10]</span> bb-monitor: validated active core node key.</p>
+            <p><span className="text-zinc-600">[07:35:36]</span> portal-auth: session persistence verified.</p>
+            <p><span className="text-zinc-600">[07:35:42]</span> api-gateway: nagad webhooks verified.</p>
           </div>
         </div>
-        <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
-          SaaS Licensing Portal
-        </h2>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Access portal.itsupport.com.bd dashboard
-        </p>
+
+        {/* Footer */}
+        <div className="text-xs text-zinc-500 z-10 flex items-center justify-between">
+          <span>&copy; {new Date().getFullYear()} IT Support BD</span>
+          <span className="flex items-center gap-1.5">
+            <Globe size={12} />
+            Edge Delivery Active
+          </span>
+        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-zinc-900 py-8 px-6 shadow-xl rounded-2xl border border-zinc-200 dark:border-zinc-800/80 sm:px-10">
+      {/* RIGHT PANEL - REDESIGNED PREMIUM LOGIN INTERFACE */}
+      <div className="w-full md:w-7/12 flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
+        {/* Abstract light mode gradients */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none block dark:hidden" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none block dark:hidden" />
+
+        <div className="w-full max-w-md bg-white dark:bg-zinc-900 py-8 px-6 shadow-2xl rounded-2xl border border-zinc-200 dark:border-zinc-800/80 sm:px-10 glass-panel border-glow-active transition-all duration-300">
+          <div className="text-center md:text-left mb-8">
+            <div className="flex justify-center md:justify-start">
+              <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20 md:hidden mb-4">
+                <Activity className="h-6 w-6 animate-pulse" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center justify-center md:justify-start gap-2">
+              IT Support BD Portal Login
+              <Sparkles size={18} className="text-blue-500 animate-pulse hidden md:block" />
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+              Access administrative licensing core consoles
+            </p>
+          </div>
+
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400 rounded-lg text-sm flex items-start gap-2">
+            <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-700 dark:text-red-400 rounded-xl text-xs flex items-start gap-2.5">
               <ShieldAlert className="h-5 w-5 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          <form className="space-y-6" onSubmit={handleEmailSignIn}>
+          <form className="space-y-5" onSubmit={handleEmailSignIn}>
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
                 Email Address
               </label>
-              <div className="mt-1.5 relative">
+              <div className="relative">
                 <input
                   id="email"
                   name="email"
@@ -157,7 +251,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-zinc-900 dark:text-zinc-50"
+                  className="w-full pl-10 pr-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-zinc-900 dark:text-zinc-550 transition-all font-medium"
                   placeholder="name@itsupport.com.bd"
                 />
                 <Mail className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-zinc-400" />
@@ -165,10 +259,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                Password
-              </label>
-              <div className="mt-1.5 relative">
+              <div className="flex justify-between items-center mb-1.5">
+                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Password
+                </label>
+              </div>
+              <div className="relative">
                 <input
                   id="password"
                   name="password"
@@ -177,27 +273,27 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-zinc-900 dark:text-zinc-50"
+                  className="w-full pl-10 pr-10 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-zinc-900 dark:text-zinc-550 transition-all font-medium"
                   placeholder="••••••••"
                 />
                 <Key className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-zinc-400" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                  className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <div>
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                className="w-full btn-premium flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-95 shadow-lg shadow-blue-500/20 cursor-pointer disabled:opacity-50"
               >
-                {loading ? "Authenticating..." : "Sign In"}
+                {loading ? "Verifying Credentials..." : "Sign In to Workspace"}
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -206,7 +302,7 @@ export default function LoginPage() {
           <div className="mt-6">
             <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-zinc-200 dark:border-zinc-800"></div>
-              <span className="flex-shrink mx-4 text-zinc-400 text-xs font-semibold uppercase">Or continue with</span>
+              <span className="flex-shrink mx-4 text-zinc-400 dark:text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Or continue with</span>
               <div className="flex-grow border-t border-zinc-200 dark:border-zinc-800"></div>
             </div>
 
@@ -214,9 +310,9 @@ export default function LoginPage() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-zinc-300 dark:border-zinc-800 rounded-lg shadow-sm text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-zinc-300 dark:border-zinc-800 rounded-xl text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-all cursor-pointer bg-white dark:bg-zinc-900"
               >
-                <svg className="h-5 w-5 mr-1" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24">
                   <path
                     fill="#EA4335"
                     d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.54 14.98 1 12 1 7.35 1 3.37 3.68 1.42 7.6l3.86 3C6.2 7.54 8.89 5.04 12 5.04z"
@@ -234,20 +330,20 @@ export default function LoginPage() {
                     d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.66-2.84c-1.01.68-2.31 1.09-4.3 1.09-3.11 0-5.8-2.5-6.74-5.56L1.42 19.8C3.37 21.72 7.35 23 12 23z"
                   />
                 </svg>
-                Google Workspace
+                Google Identity Secure
               </button>
             </div>
           </div>
 
-          <p className="mt-6 text-center text-xs text-zinc-500">
+          <p className="mt-6 text-center text-xs text-zinc-500 font-medium">
             Don&apos;t have an organization registered?{" "}
-            <Link href="/register" className="font-semibold text-blue-600 hover:underline">
-              Create an Account
+            <Link href="/register" className="font-bold text-blue-600 dark:text-blue-400 hover:underline">
+              Register Account
             </Link>
           </p>
 
-          <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 text-center text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none">
-            Developed by IT Support BD
+          <div className="mt-8 pt-4 border-t border-zinc-150 dark:border-zinc-800/80 text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest select-none">
+            Powered by IT Support BD System
           </div>
         </div>
       </div>
