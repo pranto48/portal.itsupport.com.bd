@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { getAdminDb } from "@/lib/firebase-admin";
 import {
   initializeApp as initializeClientApp,
   getApps as getClientApps,
@@ -250,56 +249,25 @@ async function verifyCore(
 
   // 3. Query Firestore for other license keys
   let licDocs: any[] = [];
-  let isClientFallback = false;
 
-  const hasAdminCreds = !!(
-    process.env.FIREBASE_PROJECT_ID &&
-    process.env.FIREBASE_CLIENT_EMAIL &&
-    process.env.FIREBASE_PRIVATE_KEY
-  );
-
-  if (hasAdminCreds) {
-    try {
-      const db = getAdminDb();
-      const licSnap = await db.collection("licenses").where("key", "==", key).limit(1).get();
-      if (!licSnap.empty) {
-        const licDoc = licSnap.docs[0];
-        licDocs = [{
-          id: licDoc.id,
-          ref: licDoc.ref,
-          data: licDoc.data(),
-          isClient: false
-        }];
-      }
-    } catch (dbError) {
-      console.error("Firestore Admin SDK lookup failed, trying client fallback:", dbError);
-      isClientFallback = true;
+  try {
+    const clientDb = getClientDbInstance();
+    const q = clientQuery(
+      clientCollection(clientDb, "licenses"),
+      clientWhere("key", "==", key),
+      clientLimit(1)
+    );
+    const querySnapshot = await clientGetDocs(q);
+    if (!querySnapshot.empty) {
+      const docSnap = querySnapshot.docs[0];
+      licDocs = [{
+        id: docSnap.id,
+        ref: docSnap.ref,
+        data: docSnap.data()
+      }];
     }
-  } else {
-    isClientFallback = true;
-  }
-
-  if (isClientFallback) {
-    try {
-      const clientDb = getClientDbInstance();
-      const q = clientQuery(
-        clientCollection(clientDb, "licenses"),
-        clientWhere("key", "==", key),
-        clientLimit(1)
-      );
-      const querySnapshot = await clientGetDocs(q);
-      if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        licDocs = [{
-          id: docSnap.id,
-          ref: docSnap.ref,
-          data: docSnap.data(),
-          isClient: true
-        }];
-      }
-    } catch (clientError) {
-      console.error("Firestore Client SDK lookup failed:", clientError);
-    }
+  } catch (clientError) {
+    console.error("Firestore Client SDK lookup failed:", clientError);
   }
 
   if (licDocs.length > 0) {
@@ -327,19 +295,11 @@ async function verifyCore(
     try {
       if (installationId) {
         if (!licData.installationId) {
-          if (licDoc.isClient) {
-            await clientUpdateDoc(licDoc.ref, {
-              installationId,
-              lastIp: clientIp,
-              lastVerifiedAt: new Date().toISOString()
-            });
-          } else {
-            await licDoc.ref.update({
-              installationId,
-              lastIp: clientIp,
-              lastVerifiedAt: new Date().toISOString()
-            });
-          }
+          await clientUpdateDoc(licDoc.ref, {
+            installationId,
+            lastIp: clientIp,
+            lastVerifiedAt: new Date().toISOString()
+          });
         } else if (licData.installationId !== installationId) {
           return sendResponse(
             isPhpClient
@@ -349,17 +309,10 @@ async function verifyCore(
           );
         }
       } else {
-        if (licDoc.isClient) {
-          await clientUpdateDoc(licDoc.ref, {
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString()
-          });
-        } else {
-          await licDoc.ref.update({
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString()
-          });
-        }
+        await clientUpdateDoc(licDoc.ref, {
+          lastIp: clientIp,
+          lastVerifiedAt: new Date().toISOString()
+        });
       }
     } catch (updateError) {
       console.error("Failed to update license metadata document in Firestore:", updateError);
