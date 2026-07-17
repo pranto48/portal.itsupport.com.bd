@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { 
-  initializeApp as initializeClientApp, 
-  getApps as getClientApps, 
-  getApp as getClientApp 
+import {
+  initializeApp as initializeClientApp,
+  getApps as getClientApps,
+  getApp as getClientApp
 } from "firebase/app";
-import { 
-  getFirestore as getClientFirestore, 
-  collection as clientCollection, 
-  query as clientQuery, 
-  where as clientWhere, 
-  limit as clientLimit, 
-  getDocs as clientGetDocs, 
-  updateDoc as clientUpdateDoc 
+import {
+  getFirestore as getClientFirestore,
+  collection as clientCollection,
+  query as clientQuery,
+  where as clientWhere,
+  limit as clientLimit,
+  getDocs as clientGetDocs,
+  updateDoc as clientUpdateDoc
 } from "firebase/firestore";
 
 const ENCRYPTION_KEY = "ITSupportBD_SecureKey_2024";
@@ -229,22 +229,22 @@ async function verifyCore(
     return sendResponse(
       isPhpClient
         ? {
-            success: true,
-            message: "License is active.",
-            max_devices: staticLicense.maxDevices,
-            actual_status: staticLicense.status,
-            expires_at: staticLicense.expiresAt,
-            core_key: "ITSupportBD_CoreShield_2026",
-          }
+          success: true,
+          message: "License is active.",
+          max_devices: staticLicense.maxDevices,
+          actual_status: staticLicense.status,
+          expires_at: staticLicense.expiresAt,
+          core_key: "ITSupportBD_CoreShield_2026",
+        }
         : {
-            valid: true,
-            status: staticLicense.status,
-            expiresAt: staticLicense.expiresAt,
-            orgId: staticLicense.orgId,
-            productId: staticLicense.productId,
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString(),
-          }
+          valid: true,
+          status: staticLicense.status,
+          expiresAt: staticLicense.expiresAt,
+          orgId: staticLicense.orgId,
+          productId: staticLicense.productId,
+          lastIp: clientIp,
+          lastVerifiedAt: new Date().toISOString(),
+        }
     );
   }
 
@@ -368,22 +368,22 @@ async function verifyCore(
     return sendResponse(
       isPhpClient
         ? {
-            success: true,
-            message: "License is active.",
-            max_devices: licData.maxDevices || 1,
-            actual_status: licData.status,
-            expires_at: licData.expiresAt,
-            core_key: "ITSupportBD_CoreShield_2026",
-          }
+          success: true,
+          message: "License is active.",
+          max_devices: licData.maxDevices || 1,
+          actual_status: licData.status,
+          expires_at: licData.expiresAt,
+          core_key: "ITSupportBD_CoreShield_2026",
+        }
         : {
-            valid: true,
-            status: licData.status,
-            expiresAt: licData.expiresAt,
-            orgId: licData.orgId,
-            productId: licData.productId,
-            lastIp: clientIp,
-            lastVerifiedAt: new Date().toISOString(),
-          }
+          valid: true,
+          status: licData.status,
+          expiresAt: licData.expiresAt,
+          orgId: licData.orgId,
+          productId: licData.productId,
+          lastIp: clientIp,
+          lastVerifiedAt: new Date().toISOString(),
+        }
     );
   }
 
