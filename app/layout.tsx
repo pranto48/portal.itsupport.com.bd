@@ -22,8 +22,11 @@ export const metadata: Metadata = {
   description: "Enterprise administrative console for client accounts, licensing node keys management, and dynamic payment configurations.",
   metadataBase: new URL("https://portal.itsupport.com.bd"),
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico", type: "image/x-icon" }
+    ],
+    shortcut: "/favicon.ico",
     apple: "/favicon.png",
   },
   keywords: [

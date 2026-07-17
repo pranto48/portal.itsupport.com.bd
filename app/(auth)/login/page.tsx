@@ -32,39 +32,30 @@ export default function LoginPage() {
       // Write cookie directly before routing to avoid edge middleware race condition
       document.cookie = `session-token=${token}; path=/; max-age=3600; SameSite=Strict; Secure`;
 
-      // Fetch user profile from firestore with offline fallback
-      let userProfile: UserProfile;
-      try {
-        const userRef = doc(db, "users", userCredential.user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          userProfile = userSnap.data() as UserProfile;
-          if (email === "mail@arifmahmud.com") {
-            userProfile.role = "admin";
-          }
-        } else {
-          userProfile = {
-            uid: userCredential.user.uid,
-            name: userCredential.user.displayName || "Administrator",
-            email: userCredential.user.email || email,
-            role: email === "mail@arifmahmud.com" ? "admin" : "member",
-            orgId: "org-default",
-            createdAt: new Date().toISOString(),
-          };
-        }
-      } catch (firestoreError) {
-        console.warn("Firestore fetch failed, falling back to local client auth:", firestoreError);
-        userProfile = {
-          uid: userCredential.user.uid,
-          name: userCredential.user.displayName || "Administrator",
-          email: userCredential.user.email || email,
-          role: email === "mail@arifmahmud.com" ? "admin" : "member",
-          orgId: "org-default",
-          createdAt: new Date().toISOString(),
-        };
-      }
+      // Instant UI redirection using client profile fallback
+      const userProfile: UserProfile = {
+        uid: userCredential.user.uid,
+        name: userCredential.user.displayName || "Administrator",
+        email: userCredential.user.email || email,
+        role: email === "mail@arifmahmud.com" ? "admin" : "member",
+        orgId: "org-default",
+        createdAt: new Date().toISOString(),
+      };
       setProfile(userProfile);
       router.push("/dashboard");
+
+      // Asynchronously fetch full profile in background
+      getDoc(doc(db, "users", userCredential.user.uid)).then((userSnap) => {
+        if (userSnap.exists()) {
+          const fullProfile = userSnap.data() as UserProfile;
+          if (email === "mail@arifmahmud.com") {
+            fullProfile.role = "admin";
+          }
+          useMonitorStore.setState({ profile: fullProfile });
+        }
+      }).catch((firestoreError) => {
+        console.warn("Background profile fetch failed:", firestoreError);
+      });
     } catch (err: any) {
       console.warn("Firebase auth failed, running mock credentials lookup:", err);
       // Offline fallback: if the user logs in with @itsupport.com.bd or mail@arifmahmud.com, allow offline bypass
@@ -105,39 +96,30 @@ export default function LoginPage() {
       // Write cookie directly before routing to avoid edge middleware race condition
       document.cookie = `session-token=${token}; path=/; max-age=3600; SameSite=Strict; Secure`;
 
-      // Fetch or create profile if not present with offline fallback
-      let userProfile: UserProfile;
-      try {
-        const userRef = doc(db, "users", result.user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          userProfile = userSnap.data() as UserProfile;
-          if (result.user.email === "mail@arifmahmud.com") {
-            userProfile.role = "admin";
-          }
-        } else {
-          userProfile = {
-            uid: result.user.uid,
-            name: result.user.displayName || "Google Operator",
-            email: result.user.email || "",
-            role: result.user.email === "mail@arifmahmud.com" ? "admin" : "owner",
-            orgId: "org-google-default",
-            createdAt: new Date().toISOString(),
-          };
-        }
-      } catch (firestoreError) {
-        console.warn("Firestore fetch failed, falling back to local client auth:", firestoreError);
-        userProfile = {
-          uid: result.user.uid,
-          name: result.user.displayName || "Google Operator",
-          email: result.user.email || "",
-          role: result.user.email === "mail@arifmahmud.com" ? "admin" : "owner",
-          orgId: "org-google-default",
-          createdAt: new Date().toISOString(),
-        };
-      }
+      // Instant UI redirection using client profile fallback
+      const userProfile: UserProfile = {
+        uid: result.user.uid,
+        name: result.user.displayName || "Google Operator",
+        email: result.user.email || "",
+        role: result.user.email === "mail@arifmahmud.com" ? "admin" : "owner",
+        orgId: "org-google-default",
+        createdAt: new Date().toISOString(),
+      };
       setProfile(userProfile);
       router.push("/dashboard");
+
+      // Asynchronously fetch full profile in background
+      getDoc(doc(db, "users", result.user.uid)).then((userSnap) => {
+        if (userSnap.exists()) {
+          const fullProfile = userSnap.data() as UserProfile;
+          if (result.user.email === "mail@arifmahmud.com") {
+            fullProfile.role = "admin";
+          }
+          useMonitorStore.setState({ profile: fullProfile });
+        }
+      }).catch((firestoreError) => {
+        console.warn("Background profile fetch failed:", firestoreError);
+      });
     } catch (err: any) {
       console.warn("Google authentication failed, falling back to local client auth:", err);
       // Google Auth developer bypass
@@ -329,7 +311,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="pt-2 flex flex-col gap-2">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
@@ -337,27 +319,6 @@ export default function LoginPage() {
               >
                 {loading ? "Verifying Credentials..." : "Sign In to Workspace"}
                 <ArrowRight size={16} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const userProfile: UserProfile = {
-                    uid: "u_mock_it",
-                    name: "Sayed Arif",
-                    email: "arif@itsupport.com.bd",
-                    role: "admin",
-                    orgId: "org-it",
-                    createdAt: new Date().toISOString(),
-                  };
-                  document.cookie = "bypass-auth=true; path=/; max-age=3600; SameSite=Strict";
-                  document.cookie = "session-token=mock.jwt.token; path=/; max-age=3600; SameSite=Strict";
-                  setProfile(userProfile);
-                  router.push("/dashboard");
-                }}
-                className="w-full py-2.5 px-4 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl text-[10px] font-bold tracking-wider uppercase text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-all cursor-pointer text-center"
-              >
-                Offline Developer Bypass (Quick Sign-In)
               </button>
             </div>
           </form>
