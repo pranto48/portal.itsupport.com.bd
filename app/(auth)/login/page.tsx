@@ -342,7 +342,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const userProfile = {
+                  const userProfile: UserProfile = {
                     uid: "u_mock_it",
                     name: "Sayed Arif",
                     email: "arif@itsupport.com.bd",
