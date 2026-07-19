@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Organization, Product, License, UserProfile, PaymentSettings, MailSettings, EmailLog } from "@/types";
 import { app } from "@/lib/firebase";
-import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc, query, where } from "firebase/firestore";
 
 interface MonitorState {
   sidebarOpen: boolean;
@@ -132,15 +132,28 @@ export const useMonitorStore = create<MonitorState>()(
 
   setProfile: (profile) => set({ profile }),
   addOrganization: async (org) => {
+    // Optimistic local update
+    set((state) => ({ organizations: [org, ...state.organizations] }));
+
     try {
       const db = getFirestore(app);
       await setDoc(doc(db, "organizations", org.id), org);
-      set((state) => ({ organizations: [org, ...state.organizations] }));
     } catch (e) {
       console.error("Failed to add organization in Firestore:", e);
     }
   },
   addLicense: async (license) => {
+    // Optimistic local update
+    set((state) => {
+      const updatedOrgs = state.organizations.map((org) =>
+        org.id === license.orgId ? { ...org, licenseCount: (org.licenseCount || 0) + 1 } : org
+      );
+      return {
+        licenses: [license, ...state.licenses],
+        organizations: updatedOrgs,
+      };
+    });
+
     try {
       const db = getFirestore(app);
       await setDoc(doc(db, "licenses", license.id), {
@@ -159,51 +172,42 @@ export const useMonitorStore = create<MonitorState>()(
         const count = orgSnap.data().licenseCount || 0;
         await updateDoc(orgRef, { licenseCount: count + 1 });
       }
-
-      set((state) => {
-        const updatedOrgs = state.organizations.map((org) =>
-          org.id === license.orgId ? { ...org, licenseCount: org.licenseCount + 1 } : org
-        );
-        return {
-          licenses: [license, ...state.licenses],
-          organizations: updatedOrgs,
-        };
-      });
     } catch (e) {
       console.error("Failed to add license in Firestore:", e);
     }
   },
   revokeLicense: async (id) => {
+    let targetOrgId = "";
+
+    // Optimistic local update
+    set((state) => {
+      const targetLic = state.licenses.find((l) => l.id === id);
+      if (!targetLic) return {};
+      targetOrgId = targetLic.orgId;
+      const updatedOrgs = state.organizations.map((org) =>
+        org.id === targetLic.orgId ? { ...org, licenseCount: Math.max(0, (org.licenseCount || 0) - 1) } : org
+      );
+      return {
+        licenses: state.licenses.map((lic) =>
+          lic.id === id ? { ...lic, status: "revoked" as const } : lic
+        ),
+        organizations: updatedOrgs,
+      };
+    });
+
     try {
       const db = getFirestore(app);
       const licRef = doc(db, "licenses", id);
       await updateDoc(licRef, { status: "revoked" });
 
-      const licSnap = await getDoc(licRef);
-      if (licSnap.exists()) {
-        const licenseData = licSnap.data();
-        const orgId = licenseData.orgId;
-        const orgRef = doc(db, "organizations", orgId);
+      if (targetOrgId) {
+        const orgRef = doc(db, "organizations", targetOrgId);
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
           const count = orgSnap.data().licenseCount || 0;
           await updateDoc(orgRef, { licenseCount: Math.max(0, count - 1) });
         }
       }
-
-      set((state) => {
-        const targetLic = state.licenses.find((l) => l.id === id);
-        if (!targetLic) return {};
-        const updatedOrgs = state.organizations.map((org) =>
-          org.id === targetLic.orgId ? { ...org, licenseCount: Math.max(0, org.licenseCount - 1) } : org
-        );
-        return {
-          licenses: state.licenses.map((lic) =>
-            lic.id === id ? { ...lic, status: "revoked" as const } : lic
-          ),
-          organizations: updatedOrgs,
-        };
-      });
     } catch (e) {
       console.error("Failed to revoke license in Firestore:", e);
     }
@@ -212,14 +216,16 @@ export const useMonitorStore = create<MonitorState>()(
   updateMailSettings: (settings) => set({ mailSettings: settings }),
   addEmailLog: (log) => set((state) => ({ emailLogs: [log, ...state.emailLogs] })),
   toggleOrgVerification: async (orgId, verified) => {
+    // Optimistic local update
+    set((state) => ({
+      organizations: state.organizations.map((org) =>
+        org.id === orgId ? { ...org, verified } : org
+      )
+    }));
+
     try {
       const db = getFirestore(app);
       await updateDoc(doc(db, "organizations", orgId), { verified });
-      set((state) => ({
-        organizations: state.organizations.map((org) =>
-          org.id === orgId ? { ...org, verified } : org
-        )
-      }));
     } catch (e) {
       console.error("Failed to update org verification in Firestore:", e);
     }
@@ -227,17 +233,40 @@ export const useMonitorStore = create<MonitorState>()(
   syncWithFirestore: async () => {
     try {
       const db = getFirestore(app);
-      const orgsSnap = await getDocs(collection(db, "organizations"));
-      const orgsList: Organization[] = [];
-      orgsSnap.forEach((doc) => {
-        orgsList.push({ id: doc.id, ...doc.data() } as Organization);
-      });
+      const state = useMonitorStore.getState();
+      const profile = state.profile;
+      
+      if (!profile) return;
 
-      const licsSnap = await getDocs(collection(db, "licenses"));
-      const licsList: License[] = [];
-      licsSnap.forEach((doc) => {
-        licsList.push({ id: doc.id, ...doc.data() } as License);
-      });
+      let orgsList: Organization[] = [];
+      let licsList: License[] = [];
+
+      if (profile.role === "admin") {
+        // Admins fetch all records
+        const orgsSnap = await getDocs(collection(db, "organizations"));
+        orgsSnap.forEach((doc) => {
+          orgsList.push({ id: doc.id, ...doc.data() } as Organization);
+        });
+
+        const licsSnap = await getDocs(collection(db, "licenses"));
+        licsSnap.forEach((doc) => {
+          licsList.push({ id: doc.id, ...doc.data() } as License);
+        });
+      } else {
+        // Scoped query for non-admin users based on their organization membership
+        if (profile.orgId) {
+          const orgDoc = await getDoc(doc(db, "organizations", profile.orgId));
+          if (orgDoc.exists()) {
+            orgsList.push({ id: orgDoc.id, ...orgDoc.data() } as Organization);
+          }
+
+          const q = query(collection(db, "licenses"), where("orgId", "==", profile.orgId));
+          const licsSnap = await getDocs(q);
+          licsSnap.forEach((doc) => {
+            licsList.push({ id: doc.id, ...doc.data() } as License);
+          });
+        }
+      }
 
       set({
         organizations: orgsList,

@@ -6,23 +6,25 @@ import { Header } from "@/components/header";
 import { useMonitorStore } from "@/store/use-monitor-store";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
 
 interface MainLayoutWrapperProps {
   children: ReactNode;
 }
 
 export function MainLayoutWrapper({ children }: MainLayoutWrapperProps) {
-  const { sidebarOpen, syncWithFirestore } = useMonitorStore();
+  const { sidebarOpen, syncWithFirestore, profile } = useMonitorStore();
+  const { user, loading: authLoading } = useAuth();
   const pathname = usePathname();
 
   // Check if this is a login or registration screen
   const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/";
 
   useEffect(() => {
-    if (!isAuthPage) {
+    if (!isAuthPage && !authLoading && user && profile) {
       syncWithFirestore();
     }
-  }, [isAuthPage, syncWithFirestore]);
+  }, [isAuthPage, authLoading, user, profile, syncWithFirestore]);
 
   if (isAuthPage) {
     return <>{children}</>;
